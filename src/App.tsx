@@ -1543,13 +1543,13 @@ export default function App() {
                   
                   <div className="flex-1 space-y-3 overflow-y-auto pr-2 ai-scrollbar min-h-[200px]">
                     <AnimatePresence initial={false}>
-                      {todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).map((todo) => {
+                      {todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).map((todo, idx) => {
                         const isOverdue = !todo.completed && todo.date < todoDate;
                         const actualIdx = todoList.findIndex(t => t === todo);
                         const formattedTodoDate = new Date(todo.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
                         return (
                         <motion.div 
-                          key={todo.id}
+                          key={todo.id || `todo-${idx}`}
                           initial={{ opacity: 0, height: 0, x: -10 }}
                           animate={{ opacity: 1, height: "auto", x: 0 }}
                           exit={{ opacity: 0, height: 0, x: 10 }}
@@ -1629,7 +1629,7 @@ export default function App() {
 
                 {/* Exam Countdowns (Stacked in Sidebar) */}
                 <div className="space-y-4">
-                  {profile.exams.map((exam) => {
+                  {profile.exams.map((exam, idx) => {
                     // Parse date as local midnight to avoid timezone issues
                     const examDate = new Date(exam.date + "T00:00:00");
                     const today = new Date();
@@ -1638,7 +1638,7 @@ export default function App() {
                     const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                     return (
                       <motion.div 
-                        key={exam.id || exam.name}
+                        key={exam.id || `exam-${idx}`}
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         whileHover={{ scale: 1.02 }}
@@ -1704,7 +1704,7 @@ export default function App() {
                     <h3 className="font-serif text-lg font-medium text-[var(--ink)]">Upcoming Tests</h3>
                   </div>
                   <div className="space-y-2">
-                    {(profile.tests || []).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(test => {
+                    {(profile.tests || []).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((test, idx) => {
                       const testDate = new Date(test.date + "T00:00:00");
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
@@ -1712,7 +1712,7 @@ export default function App() {
                       const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                       
                       return (
-                        <div key={test.id} className="flex items-center justify-between p-3 bg-[var(--cream)] border border-[var(--parch)] rounded-xl group hover:border-[var(--amber)] transition-all">
+                        <div key={test.id || `test-${idx}`} className="flex items-center justify-between p-3 bg-[var(--cream)] border border-[var(--parch)] rounded-xl group hover:border-[var(--amber)] transition-all">
                           <div>
                             <h4 className="text-sm font-medium text-[var(--ink2)]">{test.name}</h4>
                             <p className="text-[10px] font-mono text-[var(--ink4)] uppercase tracking-wider">
@@ -1759,8 +1759,8 @@ export default function App() {
               appState.data[subj].groups.flatMap(g => 
                 g.chapters.filter(ch => ch.name.toLowerCase().includes(searchQuery.toLowerCase()) || ch.notes?.some(n => n.text.toLowerCase().includes(searchQuery.toLowerCase()))).map(ch => ({ subj, g, ch }))
               )
-            ).map(({ subj, g, ch }) => (
-              <div key={`${subj}-${ch.id}-search`} className="p-4 bg-[var(--cream)] border border-[var(--parch)] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            ).map(({ subj, g, ch }, idx) => (
+              <div key={`${subj}-${ch.id}-search-${idx}`} className="p-4 bg-[var(--cream)] border border-[var(--parch)] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink4)]">{SUBJ_LABELS[subj]}</span>
@@ -1824,9 +1824,9 @@ export default function App() {
                       appState.data[subj].groups.flatMap(g => 
                         g.chapters.filter(ch => ch.notes && ch.notes.length > 0).map(ch => ({ subj, ch }))
                       )
-                    ).slice(0, 6).map(({ subj, ch }) => (
+                    ).slice(0, 6).map(({ subj, ch }, idx) => (
                       <motion.div 
-                        key={`${subj}-${ch.id}-recent`}
+                        key={`${subj}-${ch.id}-recent-${idx}`}
                         whileHover={{ y: -2 }}
                         onClick={() => {
                           setSelectedChapter({ subj, ch });
@@ -1886,8 +1886,8 @@ export default function App() {
               <div className="md:overflow-visible -mx-6 px-6 md:mx-0 md:px-0">
                 {/* Desktop Table */}
                 <table className="hidden md:table w-full border-separate border-spacing-y-1">
-                  {appState.data[activeTab as SubjectKey].groups.map(group => (
-                    <tbody key={`${activeTab}-${group.id}`}>
+                  {appState.data[activeTab as SubjectKey].groups.map((group, gIdx) => (
+                    <tbody key={`${activeTab}-${group.id}-${gIdx}`}>
                       <tr>
                         <td colSpan={group.columns.length + 1} className="px-4 pt-6 pb-2 font-mono text-[10px] uppercase tracking-widest text-[var(--ink4)] border-t border-[var(--parch)]">
                           {group.label}
@@ -1899,8 +1899,8 @@ export default function App() {
                           <th key={`${activeTab}-${group.id}-${col.id}`} className="px-4 py-2 text-center font-mono text-[10px] uppercase text-[var(--ink3)]">{col.name}</th>
                         ))}
                       </tr>
-                      {group.chapters.map(ch => (
-                        <tr key={`${activeTab}-${ch.id}`} className="group hover:bg-[var(--cream2)] transition-colors">
+                      {group.chapters.map((ch, cIdx) => (
+                        <tr key={`${activeTab}-${ch.id}-${cIdx}`} className="group hover:bg-[var(--cream2)] transition-colors">
                           <td className="px-4 py-3 bg-[var(--cream)] rounded-l-xl border-y border-l border-transparent group-hover:border-[var(--parch)]">
                             <div className="flex items-center gap-3">
                               <div className={cn(
@@ -1949,14 +1949,14 @@ export default function App() {
 
                 {/* Mobile Card View */}
                 <div className="md:hidden space-y-4 pb-32">
-                  {appState.data[activeTab as SubjectKey].groups.map(group => (
-                    <div key={`${activeTab}-${group.id}-mobile`} className="space-y-2">
+                  {appState.data[activeTab as SubjectKey].groups.map((group, gIdx) => (
+                    <div key={`${activeTab}-${group.id}-mobile-${gIdx}`} className="space-y-2">
                       <h3 className="px-2 font-mono text-[9px] uppercase tracking-widest text-[var(--ink4)] opacity-70">
                         {group.label}
                       </h3>
                       <div className="grid grid-cols-1 gap-2">
-                        {group.chapters.map(ch => (
-                          <div key={`${activeTab}-${ch.id}-mobile`} className="bg-[var(--cream)] border border-[var(--parch)] rounded-xl p-3 shadow-sm flex flex-col gap-3">
+                        {group.chapters.map((ch, cIdx) => (
+                          <div key={`${activeTab}-${ch.id}-mobile-${cIdx}`} className="bg-[var(--cream)] border border-[var(--parch)] rounded-xl p-3 shadow-sm flex flex-col gap-3">
                             <div 
                               className="flex items-center gap-2 cursor-pointer"
                               onClick={() => {
@@ -2096,7 +2096,7 @@ export default function App() {
               {tutorTab === "chat" ? (
                 <>
                   {chatMessages.map((msg, i) => (
-                    <div key={msg.id} className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}>
+                    <div key={msg.id || `msg-${i}`} className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}>
                       {msg.image && (
                         <img src={msg.image} alt="Uploaded" className="max-w-[200px] rounded-xl mb-2 border border-[var(--parch)]" />
                       )}
@@ -2151,9 +2151,9 @@ export default function App() {
                       <p className="text-xs text-[var(--ink4)] italic">No previous chats yet.</p>
                     </div>
                   ) : (
-                    profile.chatSessions.map(session => (
+                    profile.chatSessions.map((session, idx) => (
                       <div 
-                        key={session.id}
+                        key={session.id || `session-${idx}`}
                         className={cn(
                           "p-4 rounded-2xl border transition-all cursor-pointer group/session",
                           currentSessionId === session.id ? "bg-[var(--amber-lt)] border-[var(--amber)]" : "bg-[var(--cream2)] border-[var(--parch)] hover:border-[var(--amber)]"
@@ -2295,8 +2295,8 @@ export default function App() {
 
               <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
                 {profile.reminders && profile.reminders.length > 0 ? (
-                  profile.reminders.map((reminder) => (
-                    <div key={reminder.id} className="flex items-center justify-between p-4 bg-[var(--cream2)] rounded-2xl border border-[var(--parch)]">
+                  profile.reminders.map((reminder, idx) => (
+                    <div key={reminder.id || `reminder-${idx}`} className="flex items-center justify-between p-4 bg-[var(--cream2)] rounded-2xl border border-[var(--parch)]">
                       <div className="flex items-center gap-4">
                         <div className="p-2 bg-[var(--cream)] rounded-xl shadow-sm">
                           <Clock className="w-4 h-4 text-[var(--ink3)]" />
@@ -2465,10 +2465,10 @@ export default function App() {
                     <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink4)] px-1">Pending Requests</h3>
                     <div className="space-y-3">
                       {/* Incoming */}
-                      {friendRequests.filter(r => r.to === user?.uid && r.status === "pending").map(req => {
+                      {friendRequests.filter(r => r.to === user?.uid && r.status === "pending").map((req, idx) => {
                         const friend = friendsData[req.from];
                         return (
-                          <div key={req.id} className="bg-[var(--cream)] border border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4 shadow-[var(--sh-sm)]">
+                          <div key={req.id || `req-in-${idx}`} className="bg-[var(--cream)] border border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4 shadow-[var(--sh-sm)]">
                             <div className="w-10 h-10 rounded-full bg-[var(--amber-lt)]/20 flex items-center justify-center text-[var(--amber)] font-bold border border-[var(--parch)]">
                               {friend?.profile?.name?.[0] || "?"}
                             </div>
@@ -2495,10 +2495,10 @@ export default function App() {
                       })}
 
                       {/* Sent */}
-                      {friendRequests.filter(r => r.from === user?.uid && r.status === "pending").map(req => {
+                      {friendRequests.filter(r => r.from === user?.uid && r.status === "pending").map((req, idx) => {
                         const friend = friendsData[req.to];
                         return (
-                          <div key={req.id} className="bg-[var(--cream2)]/50 border border-dashed border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4">
+                          <div key={req.id || `req-out-${idx}`} className="bg-[var(--cream2)]/50 border border-dashed border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full bg-[var(--ink4)]/10 flex items-center justify-center text-[var(--ink4)] font-bold border border-[var(--parch)]">
                               {friend?.profile?.name?.[0] || "?"}
                             </div>
@@ -2530,7 +2530,7 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {friendRequests.filter(r => r.status === "accepted").map(req => {
+                      {friendRequests.filter(r => r.status === "accepted").map((req, idx) => {
                         const friendId = req.from === user?.uid ? req.to : req.from;
                         const friend = friendsData[friendId];
                         if (!friend) return null;
@@ -2542,7 +2542,7 @@ export default function App() {
 
                         return (
                           <div 
-                            key={friendId}
+                            key={friendId || `friend-${idx}`}
                             className="bg-[var(--cream)] border border-[var(--parch)] rounded-2xl p-4 shadow-[var(--sh-sm)] hover:border-[var(--amber)]/30 transition-all group"
                           >
                             <div className="flex items-center gap-3 mb-3">
@@ -2577,8 +2577,8 @@ export default function App() {
                               </div>
                               <div className="space-y-1.5">
                                 {todaysTasks.length > 0 ? (
-                                  todaysTasks.slice(0, 3).map((task: any) => (
-                                    <div key={task.id || (task.text + task.date)} className="flex items-center gap-2">
+                                  todaysTasks.slice(0, 3).map((task: any, idx: number) => (
+                                    <div key={task.id || `task-${idx}`} className="flex items-center gap-2">
                                       <div className={cn(
                                         "w-1.5 h-1.5 rounded-full",
                                         task.completed ? "bg-[var(--done)]" : "bg-[var(--parch)]"
@@ -2698,8 +2698,8 @@ export default function App() {
                     <div className="text-[8px] font-mono uppercase text-[var(--ink4)] mb-2">Today's Tasks</div>
                     <div className="space-y-2">
                       {todoList.length > 0 ? (
-                        todoList.slice(0, 4).map((todo) => (
-                          <div key={todo.id} className="flex items-center gap-2 text-xs text-[var(--ink2)]">
+                        todoList.slice(0, 4).map((todo, idx) => (
+                          <div key={todo.id || `todo-mini-${idx}`} className="flex items-center gap-2 text-xs text-[var(--ink2)]">
                             {todo.completed ? (
                               <CheckCircle2 className="w-3 h-3 text-[var(--done)]" />
                             ) : (
@@ -2976,15 +2976,15 @@ export default function App() {
                       </div>
 
                       <div className="space-y-8 mb-6">
-                        {appState.data[drawerSubj].groups.map(group => (
-                          <div key={group.id} className="space-y-3">
+                        {appState.data[drawerSubj].groups.map((group, gIdx) => (
+                          <div key={group.id || `group-${gIdx}`} className="space-y-3">
                             <h4 className="font-serif font-medium text-[var(--ink)] flex items-center gap-2">
                               <div className={cn("w-2 h-2 rounded-full", appState.data[drawerSubj].bg)} />
                               {group.label}
                             </h4>
                             <div className="space-y-2">
-                              {group.columns.map(col => (
-                                <div key={col.id} className="flex items-center gap-3 p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl group/col hover:border-[var(--amber)] transition-all">
+                              {group.columns.map((col, cIdx) => (
+                                <div key={col.id || `col-${cIdx}`} className="flex items-center gap-3 p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl group/col hover:border-[var(--amber)] transition-all">
                                   <div className="flex-1">
                                     <input 
                                       className="bg-transparent font-medium text-sm outline-none w-full"
@@ -3127,7 +3127,7 @@ export default function App() {
                       <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink3)] mb-3 block">Chapters</label>
                       <div className="space-y-1 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
                         {appState.data[drawerSubj].groups.flatMap(g => g.chapters.map(ch => ({ ...ch, gid: g.id, gLabel: g.label }))).map((ch, i, arr) => (
-                          <div key={`${drawerSubj}-${ch.id}-drawer`} className="flex items-center gap-2 p-2 bg-[var(--cream2)] border border-[var(--parch)] rounded-lg group">
+                          <div key={`${drawerSubj}-${ch.id}-drawer-${i}`} className="flex items-center gap-2 p-2 bg-[var(--cream2)] border border-[var(--parch)] rounded-lg group">
                             <div className="flex flex-col gap-0.5">
                               <button 
                                 onClick={() => {
@@ -3216,8 +3216,8 @@ export default function App() {
                       <input id="new-ch-name" className="w-full p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl outline-none text-sm" placeholder="New chapter name..." />
                       <div className="flex gap-2">
                         <select id="new-ch-group" className="flex-1 p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl outline-none text-sm appearance-none">
-                          {appState.data[drawerSubj].groups.map(g => (
-                            <option key={g.id} value={g.id}>{g.label}</option>
+                          {appState.data[drawerSubj].groups.map((g, idx) => (
+                            <option key={g.id || `opt-${idx}`} value={g.id}>{g.label}</option>
                           ))}
                         </select>
                         <button 
@@ -3252,8 +3252,8 @@ export default function App() {
                     <div>
                       <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink3)] mb-3 block">Groups</label>
                       <div className="space-y-2">
-                        {appState.data[drawerSubj].groups.map(g => (
-                          <div key={g.id} className="flex items-center gap-3 p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl">
+                        {appState.data[drawerSubj].groups.map((g, idx) => (
+                          <div key={g.id || `glist-${idx}`} className="flex items-center gap-3 p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl">
                             <span className="flex-1 text-sm font-medium">{g.label}</span>
                             <span className="text-[9px] font-mono text-[var(--ink4)]">{g.chapters.length} ch</span>
                             <button 

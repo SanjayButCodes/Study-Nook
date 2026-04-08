@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, FunctionDeclaration, ThinkingLevel, Modality } from "@google/genai";
+import { GoogleGenAI, Type, FunctionDeclaration, Modality, FunctionCallingConfigMode } from "@google/genai";
 
 const updateChapterStatus: FunctionDeclaration = {
   name: "updateChapterStatus",
@@ -141,10 +141,11 @@ Current Tracker Context: ${JSON.stringify(context || "No context provided")}`;
       config: {
         systemInstruction,
         tools: [
-          { googleSearch: {} },
           { functionDeclarations: [updateChapterStatus, addChapterNote, addExam, addTest, addChapter, updateTodoList, updateGroupColumns] }
         ],
-        toolConfig: { includeServerSideToolInvocations: true }
+        toolConfig: {
+          functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO }
+        }
       },
     });
     
