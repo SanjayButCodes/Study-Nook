@@ -1,0 +1,124 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@import "katex/dist/katex.min.css";
+
+@theme {
+  --font-sans: "Crimson Pro", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Lora", "Georgia", serif;
+  --font-mono: "DM Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --amber: #c8874a;
+  --amber-lt: #e8a96a;
+  --amber-dk: #9a6030;
+  --cream: #faf6ef;
+  --cream2: #f3ece0;
+  --cream3: #e8ddd0;
+  --parch: #ddd0bc;
+  --ink: #2d2518;
+  --ink2: #4a3d2e;
+  --ink3: #7a6a55;
+  --ink4: #a89880;
+  --phy: #3d7abf;
+  --phy-lt: #dbeafb;
+  --chem: #b84a2a;
+  --chem-lt: #fde8e0;
+  --math: #5c45a0;
+  --math-lt: #ede8fa;
+  --done: #3a8c5c;
+  --done-lt: #d8f0e4;
+  --gold: #c07a18;
+  --gold-lt: #fdf0d8;
+  --danger: #b83232;
+  --sh-sm: 0 1px 4px rgba(45, 37, 24, 0.08), 0 0 0 1px rgba(45, 37, 24, 0.04);
+  --sh-md: 0 4px 20px rgba(45, 37, 24, 0.12), 0 1px 4px rgba(45, 37, 24, 0.06);
+  --sh-lg: 0 12px 48px rgba(45, 37, 24, 0.18), 0 4px 12px rgba(45, 37, 24, 0.08);
+  --r: 14px;
+  --r-sm: 9px;
+  --header-bg: rgba(250, 246, 239, 0.92);
+}
+
+.dark {
+  --cream: #1c1710;
+  --cream2: #221e14;
+  --cream3: #2a2419;
+  --parch: #352d20;
+  --ink: #f0e8d8;
+  --ink2: #d8ccb8;
+  --ink3: #9a8a74;
+  --ink4: #6a5c48;
+  --phy: #5c9ae0;
+  --phy-lt: rgba(92, 154, 224, 0.12);
+  --chem: #e0705a;
+  --chem-lt: rgba(224, 112, 90, 0.12);
+  --math: #8a72cc;
+  --math-lt: rgba(138, 114, 204, 0.12);
+  --done: #52aa78;
+  --done-lt: rgba(82, 170, 120, 0.12);
+  --gold: #d89030;
+  --gold-lt: rgba(216, 144, 248, 0.12);
+  --danger: #e05050;
+  --sh-sm: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --sh-md: 0 4px 20px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.2);
+  --sh-lg: 0 12px 48px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --header-bg: rgba(28, 23, 16, 0.94);
+}
+
+@layer base {
+  body {
+    @apply bg-[var(--cream)] text-[var(--ink)] font-sans antialiased transition-colors duration-300;
+    background-image: 
+      radial-gradient(var(--parch) 0.5px, transparent 0.5px),
+      radial-gradient(var(--parch) 0.5px, var(--cream) 0.5px);
+    background-size: 24px 24px;
+    background-position: 0 0, 12px 12px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Allow text selection in inputs and textareas */
+  input, textarea, .prose {
+    -webkit-user-select: auto;
+    user-select: auto;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--parch);
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--ink4);
+  }
+
+  .ai-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .ai-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--amber);
+    opacity: 0.5;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply backdrop-blur-md bg-[var(--header-bg)] border-b border-[var(--parch)];
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

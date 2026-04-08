@@ -1,0 +1,186 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "The root document for a user's data",
+      "type": "object",
+      "properties": {
+        "profile": {
+          "$ref": "#/entities/Profile"
+        },
+        "appState": {
+          "$ref": "#/entities/AppState"
+        },
+        "todoList": {
+          "type": "array",
+          "items": {
+            "$ref": "#/entities/TodoItem"
+          }
+        },
+        "chatMessages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/entities/ChatMessage"
+          }
+        }
+      },
+      "required": ["profile", "appState", "todoList", "chatMessages"]
+    },
+    "Profile": {
+      "title": "Profile",
+      "description": "User profile data",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "exams": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "date": { "type": "string" },
+              "color": { "type": "string" }
+            },
+            "required": ["name", "date", "color"]
+          }
+        },
+        "onboarded": { "type": "boolean" },
+        "darkMode": { "type": "boolean" },
+        "timerSettings": {
+          "type": "object",
+          "properties": {
+            "focus": { "type": "number" },
+            "short": { "type": "number" },
+            "long": { "type": "number" }
+          },
+          "required": ["focus", "short", "long"]
+        },
+        "chatSessions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "messages": {
+                "type": "array",
+                "items": { "$ref": "#/entities/ChatMessage" }
+              },
+              "timestamp": { "type": "number" }
+            },
+            "required": ["id", "title", "messages", "timestamp"]
+          }
+        },
+        "customApiKey": { "type": "string" },
+        "reminders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "subject": { "type": "string" },
+              "time": { "type": "string" },
+              "enabled": { "type": "boolean" },
+              "lastTriggered": { "type": "string" }
+            },
+            "required": ["id", "subject", "time", "enabled"]
+          }
+        },
+        "voiceEnabled": { "type": "boolean" }
+      },
+      "required": ["name", "exams", "onboarded", "darkMode", "timerSettings", "chatSessions", "voiceEnabled"]
+    },
+    "AppState": {
+      "title": "AppState",
+      "description": "The state of the study tracker",
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "description": "Record of subjects by ID",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "color": { "type": "string" },
+              "bg": { "type": "string" },
+              "groups": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "label": { "type": "string" },
+                    "chapters": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "checks": {
+                            "type": "object",
+                            "additionalProperties": { "type": "boolean" }
+                          },
+                          "notes": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                          }
+                        },
+                        "required": ["id", "name", "checks", "notes"]
+                      }
+                    }
+                  },
+                  "required": ["id", "label", "chapters"]
+                }
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" },
+                    "isDefault": { "type": "boolean" },
+                    "countsForPct": { "type": "boolean" }
+                  },
+                  "required": ["id", "name"]
+                }
+              }
+            },
+            "required": ["color", "bg", "groups", "columns"]
+          }
+        }
+      },
+      "required": ["data"]
+    },
+    "TodoItem": {
+      "title": "TodoItem",
+      "description": "A single todo item",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "completed": { "type": "boolean" }
+      },
+      "required": ["text", "completed"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A single chat message",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["user", "ai"] },
+        "text": { "type": "string" },
+        "image": { "type": "string" },
+        "isTyping": { "type": "boolean" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["role", "text"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores all user data including profile, app state, todo list, and chat messages."
+    }
+  }
+}

@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - profile: Profile object (name, exams, onboarded, darkMode, timerSettings, chatSessions, voiceEnabled, customApiKey, reminders)
+    //   - appState: AppState object (data record of subjects)
+    //   - todoList: Array of TodoItem objects (text, completed)
+    //   - chatMessages: Array of ChatMessage objects (role, text, image, isTyping, timestamp)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "sanjaydeep.gangishetti@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Domain Validators
+    
+    function isValidProfile(profile) {
+      return profile is map &&
+             profile.name is string && profile.name.size() > 0 && profile.name.size() < 100 &&
+             profile.exams is list &&
+             profile.onboarded is bool &&
+             profile.darkMode is bool &&
+             profile.timerSettings is map &&
+             profile.chatSessions is list &&
+             profile.voiceEnabled is bool;
+    }
+
+    function isValidAppState(appState) {
+      return appState is map && appState.data is map;
+    }
+
+    function isValidTodoList(todoList) {
+      return todoList is list && todoList.size() < 500;
+    }
+
+    function isValidUser(data) {
+      return hasRequiredFields(['profile', 'appState', 'todoList']) &&
+             isValidProfile(data.profile) &&
+             isValidAppState(data.appState) &&
+             isValidTodoList(data.todoList);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /friendRequests/{requestId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.from;
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.to;
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

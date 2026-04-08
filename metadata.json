@@ -1,0 +1,5 @@
+{
+  "name": "Study Nook",
+  "description": "A cozy JEE preparation tracker with a Pomodoro timer and AI Study Coach.",
+  "requestFramePermissions": ["microphone"]
+}
