@@ -441,7 +441,7 @@ export default function App() {
   const deleteChatSession = (id: string) => {
     setProfile(p => ({
       ...p,
-      chatSessions: p.chatSessions.filter(s => s.id !== id)
+      chatSessions: (p.chatSessions || []).filter(s => s.id !== id)
     }));
     if (currentSessionId === id) {
       startNewChat();
@@ -1357,7 +1357,7 @@ export default function App() {
                 title="Friends"
               >
                 <Users className="w-4 h-4" />
-                {friendRequests.filter(r => r.to === user.uid && r.status === "pending").length > 0 && (
+                {(friendRequests || []).filter(r => r.to === user.uid && r.status === "pending").length > 0 && (
                   <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-[var(--cream)]" />
                 )}
               </button>
@@ -1417,6 +1417,42 @@ export default function App() {
             className="max-w-[1320px] mx-auto px-6 md:px-8 pt-8 pb-6 overflow-hidden"
           >
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Upcoming Tests (Full Width Row) */}
+              <div className="lg:col-span-12 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-lg font-medium text-[var(--ink)]">Upcoming Tests</h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {(profile.tests || []).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((test, idx) => {
+                    const testDate = new Date(test.date + "T00:00:00");
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const diffTime = testDate.getTime() - today.getTime();
+                    const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    return (
+                      <div key={test.id || `test-${idx}`} className="flex items-center justify-between p-3 bg-[var(--cream)] border border-[var(--parch)] rounded-xl group hover:border-[var(--amber)] transition-all shadow-[var(--sh-sm)]">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-[var(--ink2)] truncate">{test.name}</h4>
+                          <p className="text-[10px] font-mono text-[var(--ink4)] uppercase tracking-wider">
+                            {new Date(test.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        </div>
+                        <button 
+                          onClick={() => setProfile(p => ({ ...p, tests: (p.tests || []).filter(t => t.id !== test.id) }))}
+                          className="p-1 text-[var(--ink4)] hover:text-red-500 hover:bg-red-500/10 rounded transition-all opacity-0 group-hover:opacity-100 ml-2"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {(profile.tests || []).length === 0 && (
+                    <div className="col-span-full text-xs italic text-[var(--ink4)] text-center py-4 bg-[var(--cream2)]/30 border border-dashed border-[var(--parch)] rounded-xl">No upcoming tests.</div>
+                  )}
+                </div>
+              </div>
+
               {/* Main Welcome & Motivation (Bento Large) */}
               <div className="lg:col-span-8 space-y-6">
                 <motion.div 
@@ -1673,7 +1709,7 @@ export default function App() {
                             </div>
                           </div>
                           <button 
-                            onClick={() => setProfile(p => ({ ...p, exams: p.exams.filter(e => e.id !== exam.id) }))}
+                            onClick={() => setProfile(p => ({ ...p, exams: (p.exams || []).filter(e => e.id !== exam.id) }))}
                             className="p-1.5 hover:bg-red-500/10 hover:text-red-500 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -1702,42 +1738,6 @@ export default function App() {
                       <span className="text-xs font-mono uppercase tracking-widest">Add Exam Date</span>
                     </button>
                   )}
-                </div>
-                
-                {/* Upcoming Tests */}
-                <div className="mt-8 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-serif text-lg font-medium text-[var(--ink)]">Upcoming Tests</h3>
-                  </div>
-                  <div className="space-y-2">
-                    {(profile.tests || []).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((test, idx) => {
-                      const testDate = new Date(test.date + "T00:00:00");
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      const diffTime = testDate.getTime() - today.getTime();
-                      const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                      
-                      return (
-                        <div key={test.id || `test-${idx}`} className="flex items-center justify-between p-3 bg-[var(--cream)] border border-[var(--parch)] rounded-xl group hover:border-[var(--amber)] transition-all">
-                          <div>
-                            <h4 className="text-sm font-medium text-[var(--ink2)]">{test.name}</h4>
-                            <p className="text-[10px] font-mono text-[var(--ink4)] uppercase tracking-wider">
-                              {new Date(test.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            </p>
-                          </div>
-                          <button 
-                            onClick={() => setProfile(p => ({ ...p, tests: (p.tests || []).filter(t => t.id !== test.id) }))}
-                            className="p-1 text-[var(--ink4)] hover:text-red-500 hover:bg-red-500/10 rounded transition-all opacity-0 group-hover:opacity-100"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                    {(profile.tests || []).length === 0 && (
-                      <div className="text-xs italic text-[var(--ink4)] text-center py-4">No upcoming tests.</div>
-                    )}
-                  </div>
                 </div>
               </div>
             </div>
@@ -1776,7 +1776,7 @@ export default function App() {
                   <h4 className="font-medium text-[var(--ink)]">{ch.name}</h4>
                 </div>
                 <div className="flex gap-2">
-                  {g.columns.map((col, cIdx) => (
+                  {(g.columns || []).map((col, cIdx) => (
                     <button 
                       key={`${subj}-${ch.id}-${col.id}-search-${idx}-${cIdx}`}
                       onClick={() => toggleChapterCheck(subj, ch.id, col.id)}
@@ -1911,8 +1911,8 @@ export default function App() {
                             <div className="flex items-center gap-3">
                               <div className={cn(
                                 "w-2 h-2 rounded-full",
-                                Object.values(ch.checks).filter(Boolean).length === group.columns.length ? "bg-[var(--done)]" : 
-                                Object.values(ch.checks).filter(Boolean).length > 0 ? "bg-[var(--gold)]" : "bg-[var(--cream3)] border border-[var(--parch)]"
+                                Object.values(ch.checks || {}).filter(Boolean).length === (group.columns || []).length ? "bg-[var(--done)]" : 
+                                Object.values(ch.checks || {}).filter(Boolean).length > 0 ? "bg-[var(--gold)]" : "bg-[var(--cream3)] border border-[var(--parch)]"
                               )} />
                               <div 
                                 className="flex flex-col cursor-help"
@@ -1933,7 +1933,7 @@ export default function App() {
                               </div>
                             </div>
                           </td>
-                          {group.columns.map(col => (
+                          {(group.columns || []).map(col => (
                             <td key={`${activeTab}-${ch.id}-${col.id}`} className="px-4 py-3 text-center bg-[var(--cream)] border-y border-transparent group-hover:border-[var(--parch)]">
                               <button 
                                 type="button"
@@ -1972,8 +1972,8 @@ export default function App() {
                             >
                               <div className={cn(
                                 "w-2 h-2 rounded-full shrink-0",
-                                Object.values(ch.checks).filter(Boolean).length === group.columns.length ? "bg-[var(--done)]" : 
-                                Object.values(ch.checks).filter(Boolean).length > 0 ? "bg-[var(--gold)]" : "bg-[var(--cream3)] border border-[var(--parch)]"
+                                Object.values(ch.checks || {}).filter(Boolean).length === (group.columns || []).length ? "bg-[var(--done)]" : 
+                                Object.values(ch.checks || {}).filter(Boolean).length > 0 ? "bg-[var(--gold)]" : "bg-[var(--cream3)] border border-[var(--parch)]"
                               )} />
                               <div className="flex-1 min-w-0">
                                 <h4 className="text-sm font-medium text-[var(--ink2)] leading-tight truncate">{ch.name}</h4>
@@ -1990,7 +1990,7 @@ export default function App() {
                             </div>
                             
                             <div className="flex flex-wrap gap-1.5">
-                              {group.columns.map(col => (
+                              {(group.columns || []).map(col => (
                                 <button 
                                   key={`${activeTab}-${ch.id}-${col.id}-mobile`}
                                   onClick={() => toggleChapterCheck(activeTab as SubjectKey, ch.id, col.id)}
@@ -2301,7 +2301,7 @@ export default function App() {
 
               <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
                 {profile.reminders && profile.reminders.length > 0 ? (
-                  profile.reminders.map((reminder, idx) => (
+                  (profile.reminders || []).map((reminder, idx) => (
                     <div key={reminder.id || `reminder-${idx}`} className="flex items-center justify-between p-4 bg-[var(--cream2)] rounded-2xl border border-[var(--parch)]">
                       <div className="flex items-center gap-4">
                         <div className="p-2 bg-[var(--cream)] rounded-xl shadow-sm">
@@ -2328,7 +2328,7 @@ export default function App() {
                           onClick={() => {
                             setProfile(p => ({
                               ...p,
-                              reminders: p.reminders?.filter(r => r.id !== reminder.id)
+                              reminders: p.reminders?.filter(r => r.id !== reminder.id) || []
                             }));
                           }}
                           className="p-2 text-[var(--ink3)] hover:text-red-500 transition-colors"
@@ -2989,7 +2989,7 @@ export default function App() {
                               {group.label}
                             </h4>
                             <div className="space-y-2">
-                              {group.columns.map((col, cIdx) => (
+                              {(group.columns || []).map((col, cIdx) => (
                                 <div key={col.id || `col-${cIdx}`} className="flex items-center gap-3 p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl group/col hover:border-[var(--amber)] transition-all">
                                   <div className="flex-1">
                                     <input 
@@ -3003,9 +3003,9 @@ export default function App() {
                                             ...prev.data,
                                             [drawerSubj]: {
                                               ...prev.data[drawerSubj],
-                                              groups: prev.data[drawerSubj].groups.map(g => g.id === group.id ? {
+                                              groups: (prev.data[drawerSubj]?.groups || []).map(g => g.id === group.id ? {
                                                 ...g,
-                                                columns: g.columns.map(c => c.id === col.id ? { ...c, name: newName } : c)
+                                                columns: (g.columns || []).map(c => c.id === col.id ? { ...c, name: newName } : c)
                                               } : g)
                                             }
                                           }
@@ -3022,9 +3022,9 @@ export default function App() {
                                             ...prev.data,
                                             [drawerSubj]: {
                                               ...prev.data[drawerSubj],
-                                              groups: prev.data[drawerSubj].groups.map(g => g.id === group.id ? {
+                                              groups: (prev.data[drawerSubj]?.groups || []).map(g => g.id === group.id ? {
                                                 ...g,
-                                                columns: g.columns.map(c => c.id === col.id ? { ...c, countsForPct: !c.countsForPct } : c)
+                                                columns: (g.columns || []).map(c => c.id === col.id ? { ...c, countsForPct: !c.countsForPct } : c)
                                               } : g)
                                             }
                                           }
@@ -3051,9 +3051,9 @@ export default function App() {
                                                 ...prev.data,
                                                 [drawerSubj]: {
                                                   ...prev.data[drawerSubj],
-                                                  groups: prev.data[drawerSubj].groups.map(g => g.id === group.id ? {
+                                                  groups: (prev.data[drawerSubj]?.groups || []).map(g => g.id === group.id ? {
                                                     ...g,
-                                                    columns: g.columns.filter(c => c.id !== col.id)
+                                                    columns: (g.columns || []).filter(c => c.id !== col.id)
                                                   } : g)
                                                 }
                                               }
@@ -3087,9 +3087,9 @@ export default function App() {
                                         ...prev.data,
                                         [drawerSubj]: {
                                           ...prev.data[drawerSubj],
-                                          groups: prev.data[drawerSubj].groups.map(g => g.id === group.id ? {
+                                          groups: (prev.data[drawerSubj]?.groups || []).map(g => g.id === group.id ? {
                                             ...g,
-                                            columns: [...g.columns, { id: uid(), name, countsForPct: true }]
+                                            columns: [...(g.columns || []), { id: uid(), name, countsForPct: true }]
                                           } : g)
                                         }
                                       }
@@ -3200,8 +3200,8 @@ export default function App() {
                                         ...prev.data,
                                         [drawerSubj]: {
                                           ...prev.data[drawerSubj],
-                                          groups: prev.data[drawerSubj].groups.map(g => 
-                                            g.id === ch.gid ? { ...g, chapters: g.chapters.filter(c => c.id !== ch.id) } : g
+                                          groups: (prev.data[drawerSubj]?.groups || []).map(g => 
+                                            g.id === ch.gid ? { ...g, chapters: (g.chapters || []).filter(c => c.id !== ch.id) } : g
                                           )
                                         }
                                       }
@@ -3239,8 +3239,8 @@ export default function App() {
                                   ...prev.data,
                                   [drawerSubj]: {
                                     ...prev.data[drawerSubj],
-                                    groups: prev.data[drawerSubj].groups.map(g => 
-                                      g.id === gid ? { ...g, chapters: [...g.chapters, { id: Math.random().toString(36).substring(2, 9), name, checks: {}, notes: [] }] } : g
+                                    groups: (prev.data[drawerSubj]?.groups || []).map(g => 
+                                      g.id === gid ? { ...g, chapters: [...(g.chapters || []), { id: Math.random().toString(36).substring(2, 9), name, checks: {}, notes: [] }] } : g
                                     )
                                   }
                                 }
@@ -3276,7 +3276,7 @@ export default function App() {
                                         ...prev.data,
                                         [drawerSubj]: {
                                           ...prev.data[drawerSubj],
-                                          groups: prev.data[drawerSubj].groups.filter(gr => gr.id !== g.id)
+                                          groups: (prev.data[drawerSubj]?.groups || []).filter(gr => gr.id !== g.id)
                                         }
                                       }
                                     }));
@@ -3663,7 +3663,7 @@ export default function App() {
                         </div>
                         <button 
                           onClick={() => {
-                            const newNotes = selectedChapter.ch.notes.filter((_, i) => i !== idx);
+                            const newNotes = (selectedChapter.ch.notes || []).filter((_, i) => i !== idx);
                             setSelectedChapter(prev => prev ? { ...prev, ch: { ...prev.ch, notes: newNotes } } : null);
                             setAppState(prev => ({
                               ...prev,

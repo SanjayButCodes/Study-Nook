@@ -1,0 +1,20 @@
+444:      chatSessions: p.chatSessions.filter(s => s.id !== id)
+1001:        const checks = countCols.filter(c => ch.checks && ch.checks[c.id]).length;
+1031:            doneChecks += countCols.filter(c => ch.checks && ch.checks[c.id]).length;
+1128:            .filter(c => {
+1129:              const checks = Object.values(c.checks || {}).filter(Boolean).length;
+1192:            setTodoList(prev => prev.filter((_, i) => i !== index));
+1360:                {friendRequests.filter(r => r.to === user.uid && r.status === "pending").length > 0 && (
+1587:                            onClick={() => setTodoList(prev => prev.filter((_, i) => i !== actualIdx))}
+1676:                            onClick={() => setProfile(p => ({ ...p, exams: p.exams.filter(e => e.id !== exam.id) }))}
+1914:                                Object.values(ch.checks).filter(Boolean).length === group.columns.length ? "bg-[var(--done)]" : 
+1915:                                Object.values(ch.checks).filter(Boolean).length > 0 ? "bg-[var(--gold)]" : "bg-[var(--cream3)] border border-[var(--parch)]"
+1975:                                Object.values(ch.checks).filter(Boolean).length === group.columns.length ? "bg-[var(--done)]" : 
+1976:                                Object.values(ch.checks).filter(Boolean).length > 0 ? "bg-[var(--gold)]" : "bg-[var(--cream3)] border border-[var(--parch)]"
+2331:                              reminders: p.reminders?.filter(r => r.id !== reminder.id)
+2547:                        const todaysTasks = fTodoList.filter(t => t.date === today || (!t.completed && t.date < today));
+2582:                                <span className="text-[9px] font-mono font-bold text-[var(--amber)]">{todaysTasks.filter(t => t.completed).length}/{todaysTasks.length}</span>
+3056:                                                    columns: g.columns.filter(c => c.id !== col.id)
+3204:                                            g.id === ch.gid ? { ...g, chapters: g.chapters.filter(c => c.id !== ch.id) } : g
+3279:                                          groups: prev.data[drawerSubj].groups.filter(gr => gr.id !== g.id)
+3666:                            const newNotes = selectedChapter.ch.notes.filter((_, i) => i !== idx);
