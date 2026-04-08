@@ -31,12 +31,25 @@ const addChapterNote: FunctionDeclaration = {
 
 const addExam: FunctionDeclaration = {
   name: "addExam",
-  description: "Add a new exam countdown.",
+  description: "Add a new major exam countdown (e.g., JEE Main, JEE Advanced).",
   parameters: {
     type: Type.OBJECT,
     properties: {
       name: { type: Type.STRING, description: "The name of the exam." },
       date: { type: Type.STRING, description: "The date of the exam (YYYY-MM-DD)." }
+    },
+    required: ["name", "date"]
+  }
+};
+
+const addTest: FunctionDeclaration = {
+  name: "addTest",
+  description: "Add a new upcoming test (e.g., weekly mock test, chapter test).",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      name: { type: Type.STRING, description: "The name of the test." },
+      date: { type: Type.STRING, description: "The date of the test (YYYY-MM-DD)." }
     },
     required: ["name", "date"]
   }
@@ -96,7 +109,7 @@ const updateGroupColumns: FunctionDeclaration = {
   }
 };
 
-export async function callGemini(prompt: string, imageBase64?: string, imageMimeType?: string, context?: any, history: { role: "user" | "model"; parts: { text: string }[] }[] = [], model: string = "gemini-3.1-flash-lite-preview", userName?: string) {
+export async function callGemini(prompt: string, imageBase64?: string, imageMimeType?: string, context?: any, history: { role: "user" | "model"; parts: { text: string }[] }[] = [], model: string = "gemini-2.5-flash", userName?: string) {
   const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.warn("API Key is not set. AI features will not work.");
@@ -117,7 +130,7 @@ export async function callGemini(prompt: string, imageBase64?: string, imageMime
   const systemInstruction = `You are an expert IIT JEE tutor named Nova, trained by Sanjay. Be concise, accurate, and highly encouraging. 
 The student you are tutoring is named ${userName || "the student"}. Address them by name when appropriate.
 Use markdown for formatting. Use LaTeX for all mathematical formulas (e.g., $E=mc^2$ or $$E=mc^2$$).
-You have access to the user's study tracker state. You can update chapter statuses, add notes, add exams, add chapters, manage a to-do list, and update settings.
+You have access to the user's study tracker state. You can update chapter statuses, add notes, add major exams, add upcoming tests, add chapters, manage a to-do list, and update settings.
 Current Tracker Context: ${JSON.stringify(context || "No context provided")}`;
 
   try {
@@ -129,7 +142,7 @@ Current Tracker Context: ${JSON.stringify(context || "No context provided")}`;
         systemInstruction,
         tools: [
           { googleSearch: {} },
-          { functionDeclarations: [updateChapterStatus, addChapterNote, addExam, addChapter, updateTodoList, updateGroupColumns] }
+          { functionDeclarations: [updateChapterStatus, addChapterNote, addExam, addTest, addChapter, updateTodoList, updateGroupColumns] }
         ],
         toolConfig: { includeServerSideToolInvocations: true }
       },
@@ -164,7 +177,7 @@ export async function callGeminiTTS(text: string) {
   
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
+      model: "gemini-2.5-flash-tts",
       contents: [{ parts: [{ text }] }],
       config: {
         responseModalities: [Modality.AUDIO],

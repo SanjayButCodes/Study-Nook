@@ -16,7 +16,7 @@ const mkGroup = (id: string, label: string, names: string[]): Group => ({
   columns: [...DEFAULT_COLUMNS],
 });
 
-const DEFAULT_COLUMNS: Column[] = [
+export const DEFAULT_COLUMNS: Column[] = [
   { id: "study", name: "Studied", isDefault: true, countsForPct: true },
   { id: "test", name: "Tested", isDefault: true, countsForPct: true },
 ];

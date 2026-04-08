@@ -55,7 +55,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { cn } from "./lib/utils";
-import { DEFAULTS } from "./constants";
+import { DEFAULTS, DEFAULT_COLUMNS } from "./constants";
 import { AppState, Profile, Chapter, Group, Exam, Column, ChatSession, SubjectData, Reminder, Todo, FriendRequest, ChatMessage, ChapterNote } from "./types";
 import { callGemini } from "./services/gemini";
 import { auth, db, googleProvider } from "./firebase";
@@ -294,6 +294,7 @@ export default function App() {
     const defaultProfile: Profile = {
       name: "",
       exams: [],
+      tests: [],
       onboarded: false,
       darkMode: false,
       chatSessions: [],
@@ -307,6 +308,7 @@ export default function App() {
       return {
         ...defaultProfile,
         ...parsed,
+        tests: parsed.tests || [],
         voiceEnabled: parsed.voiceEnabled ?? true,
         friendCode: parsed.friendCode || Math.floor(100000 + Math.random() * 900000).toString()
       };
@@ -1010,9 +1012,23 @@ export default function App() {
   };
 
   const calculateOverallPct = (state: AppState) => {
-    const stats = SUBJ_KEYS.map(k => getSubjStatsForState(k, state));
-    const total = stats.reduce((acc, s) => acc + s.pct, 0);
-    return Math.round(total / SUBJ_KEYS.length);
+    let totalChecks = 0;
+    let doneChecks = 0;
+    
+    SUBJ_KEYS.forEach(k => {
+      const subjData = state.data[k];
+      if (subjData) {
+        subjData.groups.forEach(g => {
+          const countCols = g.columns.filter(c => c.countsForPct);
+          g.chapters.forEach(ch => {
+            totalChecks += countCols.length;
+            doneChecks += countCols.filter(c => ch.checks[c.id]).length;
+          });
+        });
+      }
+    });
+    
+    return totalChecks ? Math.round((doneChecks / totalChecks) * 100) : 0;
   };
 
   const getSubjStats = (key: string) => getSubjStatsForState(key, appState);
@@ -1056,10 +1072,7 @@ export default function App() {
   };
 
   const overallPct = useMemo(() => {
-    const stats = SUBJ_KEYS.map(getSubjStats);
-    const total = stats.reduce((acc, s) => acc + s.total, 0);
-    const done = stats.reduce((acc, s) => acc + s.done, 0);
-    return total ? Math.round((done / total) * 100) : 0;
+    return calculateOverallPct(appState);
   }, [appState]);
 
   const handleChatImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1094,18 +1107,27 @@ export default function App() {
         completedChapters: getSubjStats(subj).done,
         totalChapters: getSubjStats(subj).total,
       })),
+      groups: Object.keys(appState.data).map(subj => ({
+        subject: subj,
+        groups: appState.data[subj].groups.map(g => ({
+          id: g.id,
+          label: g.label,
+          columns: g.columns.map(c => c.name)
+        }))
+      })),
       // Only send chapters that are currently in progress (not 0/3 and not 3/3) to save massive amounts of tokens
       activeChapters: Object.keys(appState.data).flatMap(subj => 
         appState.data[subj].groups.flatMap(g => 
           g.chapters
             .filter(c => {
               const checks = Object.values(c.checks).filter(Boolean).length;
-              return checks > 0 && checks < 3;
+              return checks > 0 && checks < g.columns.length;
             })
             .map(c => ({
               subject: subj,
+              groupId: g.id,
               name: c.name,
-              progress: Object.values(c.checks).filter(Boolean).length + "/3"
+              progress: Object.values(c.checks).filter(Boolean).length + "/" + g.columns.length
             }))
         )
       ),
@@ -1143,6 +1165,11 @@ export default function App() {
           if (name && date) {
             setProfile(p => ({ ...p, exams: [...p.exams, { id: uid(), name, date, color: "amber" }] }));
           }
+        } else if (call.name === "addTest") {
+          const { name, date } = call.args as any;
+          if (name && date) {
+            setProfile(p => ({ ...p, tests: [...(p.tests || []), { id: uid(), name, date }] }));
+          }
         } else if (call.name === "addChapter") {
           const { subject, groupId, name } = call.args as any;
           setAppState(prev => {
@@ -1160,15 +1187,15 @@ export default function App() {
           } else if (action === "toggle" && index !== undefined) {
             setTodoList(prev => prev.map((it, i) => i === index ? { ...it, completed: !it.completed } : it));
           }
-        } else if (call.name === "updateSubjectColumns") {
-          const { subject, columns } = call.args as any;
+        } else if (call.name === "updateGroupColumns") {
+          const { subject, groupId, columns } = call.args as any;
           setAppState(prev => ({
             ...prev,
             data: {
               ...prev.data,
               [subject]: {
                 ...prev.data[subject],
-                columns: columns
+                groups: prev.data[subject].groups.map((g: Group) => g.id === groupId ? { ...g, columns } : g)
               }
             }
           }));
@@ -1543,7 +1570,7 @@ export default function App() {
                           </button>
                           <div className="flex-1 min-w-0">
                             <span className={cn(
-                              "text-sm transition-all block truncate",
+                              "text-sm transition-all block break-words",
                               todo.completed ? "text-[var(--ink4)] line-through" : isOverdue ? "text-red-700 font-medium" : "text-[var(--ink2)]"
                             )}>
                               {todo.text}
@@ -1670,6 +1697,42 @@ export default function App() {
                     </button>
                   )}
                 </div>
+                
+                {/* Upcoming Tests */}
+                <div className="mt-8 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-serif text-lg font-medium text-[var(--ink)]">Upcoming Tests</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {(profile.tests || []).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(test => {
+                      const testDate = new Date(test.date + "T00:00:00");
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const diffTime = testDate.getTime() - today.getTime();
+                      const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                      
+                      return (
+                        <div key={test.id} className="flex items-center justify-between p-3 bg-[var(--cream)] border border-[var(--parch)] rounded-xl group hover:border-[var(--amber)] transition-all">
+                          <div>
+                            <h4 className="text-sm font-medium text-[var(--ink2)]">{test.name}</h4>
+                            <p className="text-[10px] font-mono text-[var(--ink4)] uppercase tracking-wider">
+                              {new Date(test.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                          </div>
+                          <button 
+                            onClick={() => setProfile(p => ({ ...p, tests: (p.tests || []).filter(t => t.id !== test.id) }))}
+                            className="p-1 text-[var(--ink4)] hover:text-red-500 hover:bg-red-500/10 rounded transition-all opacity-0 group-hover:opacity-100"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {(profile.tests || []).length === 0 && (
+                      <div className="text-xs italic text-[var(--ink4)] text-center py-4">No upcoming tests.</div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </motion.section>
@@ -1707,7 +1770,7 @@ export default function App() {
                   <h4 className="font-medium text-[var(--ink)]">{ch.name}</h4>
                 </div>
                 <div className="flex gap-2">
-                  {appState.data[subj as SubjectKey].columns.map(col => (
+                  {g.columns.map(col => (
                     <button 
                       key={`${subj}-${ch.id}-${col.id}-search`}
                       onClick={() => toggleChapterCheck(subj, ch.id, col.id)}
@@ -2521,7 +2584,7 @@ export default function App() {
                                         task.completed ? "bg-[var(--done)]" : "bg-[var(--parch)]"
                                       )} />
                                       <span className={cn(
-                                        "text-[10px] truncate",
+                                        "text-[10px] break-words flex-1",
                                         task.completed ? "text-[var(--ink4)] line-through" : "text-[var(--ink2)]"
                                       )}>
                                         {task.text}
@@ -2844,7 +2907,7 @@ export default function App() {
                     <section>
                       <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink3)] mb-3 block">Add Exam Countdown</label>
                       <div className="space-y-3">
-                        <input id="new-exam-name" className="w-full p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl outline-none" placeholder="Exam Name" />
+                        <input id="new-exam-name" className="w-full p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl outline-none" placeholder="Exam Name (e.g., JEE Main)" />
                         <input id="new-exam-date" type="date" className="w-full p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl outline-none" />
                         <button 
                           onClick={() => {
@@ -2861,6 +2924,31 @@ export default function App() {
                           className="w-full p-3 bg-[var(--ink)] text-white rounded-xl font-medium"
                         >
                           Add Exam
+                        </button>
+                      </div>
+                    </section>
+
+                    {/* Add Test */}
+                    <section>
+                      <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink3)] mb-3 block">Add Upcoming Test</label>
+                      <div className="space-y-3">
+                        <input id="new-test-name" className="w-full p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl outline-none" placeholder="Test Name (e.g., Weekly Mock)" />
+                        <input id="new-test-date" type="date" className="w-full p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl outline-none" />
+                        <button 
+                          onClick={() => {
+                            const nameEl = document.getElementById("new-test-name") as HTMLInputElement;
+                            const dateEl = document.getElementById("new-test-date") as HTMLInputElement;
+                            if (nameEl && dateEl && nameEl.value && dateEl.value) {
+                              const name = nameEl.value;
+                              const date = dateEl.value;
+                              setProfile(p => ({ ...p, tests: [...(p.tests || []), { id: uid(), name, date }] }));
+                              nameEl.value = "";
+                              dateEl.value = "";
+                            }
+                          }}
+                          className="w-full p-3 bg-[var(--ink)] text-white rounded-xl font-medium"
+                        >
+                          Add Test
                         </button>
                       </div>
                     </section>
@@ -3209,7 +3297,7 @@ export default function App() {
                                   ...prev.data,
                                   [drawerSubj]: {
                                     ...prev.data[drawerSubj],
-                                    groups: [...prev.data[drawerSubj].groups, { id: Math.random().toString(36).substring(2, 9), label, chapters: [] }]
+                                    groups: [...prev.data[drawerSubj].groups, { id: Math.random().toString(36).substring(2, 9), label, chapters: [], columns: [...DEFAULT_COLUMNS] }]
                                   }
                                 }
                               }));

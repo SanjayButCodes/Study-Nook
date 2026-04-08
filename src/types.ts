@@ -61,9 +61,16 @@ export interface Reminder {
   lastTriggered?: string; // "YYYY-MM-DD"
 }
 
+export interface Test {
+  id: string;
+  name: string;
+  date: string;
+}
+
 export interface Profile {
   name: string;
   exams: Exam[];
+  tests?: Test[];
   onboarded: boolean;
   darkMode: boolean;
   chatSessions: ChatSession[];
