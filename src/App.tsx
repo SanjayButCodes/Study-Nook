@@ -264,23 +264,27 @@ export default function App() {
     const data = saved ? JSON.parse(saved) : DEFAULTS;
     
     // Migration: ensure each group has columns
-    Object.keys(data.data).forEach(subj => {
-      const subjData = data.data[subj];
-      if (subjData.columns) {
-        subjData.groups.forEach((g: Group) => {
-          if (!g.columns) {
-            g.columns = [...subjData.columns];
-          }
-        });
-        delete subjData.columns;
-      } else {
-        subjData.groups.forEach((g: Group) => {
-          if (!g.columns) {
-            g.columns = DEFAULTS.data[subj as SubjectKey].groups.find(dg => dg.id === g.id)?.columns || [];
-          }
-        });
-      }
-    });
+    if (data && data.data) {
+      Object.keys(data.data).forEach(subj => {
+        const subjData = data.data[subj];
+        if (!subjData) return;
+        
+        if (subjData.columns) {
+          (subjData.groups || []).forEach((g: Group) => {
+            if (!g.columns) {
+              g.columns = [...subjData.columns];
+            }
+          });
+          delete subjData.columns;
+        } else {
+          (subjData.groups || []).forEach((g: Group) => {
+            if (!g.columns) {
+              g.columns = DEFAULTS.data[subj as SubjectKey]?.groups.find(dg => dg.id === g.id)?.columns || [];
+            }
+          });
+        }
+      });
+    }
     
     // Migration: remove global columns if they exist from older versions
     if (data.columns) {
@@ -811,9 +815,9 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const relevantUsers = Array.from(new Set([
-      ...friendRequests.filter(r => r.status === "accepted").map(r => r.from === user.uid ? r.to : r.from),
-      ...friendRequests.filter(r => r.to === user.uid && r.status === "pending").map(r => r.from),
-      ...friendRequests.filter(r => r.from === user.uid && r.status === "pending").map(r => r.to)
+      ...(friendRequests || []).filter(r => r.status === "accepted").map(r => r.from === user.uid ? r.to : r.from),
+      ...(friendRequests || []).filter(r => r.to === user.uid && r.status === "pending").map(r => r.from),
+      ...(friendRequests || []).filter(r => r.from === user.uid && r.status === "pending").map(r => r.to)
     ]));
     
     const unsubscribes: (() => void)[] = [];
@@ -978,6 +982,7 @@ export default function App() {
   };
 
   const getSubjStatsForState = (key: string, state: AppState) => {
+    if (!state || !state.data) return { total: 0, done: 0, partial: 0, pct: 0 };
     const subjData = state.data[key];
     if (!subjData) return { total: 0, done: 0, partial: 0, pct: 0 };
     
@@ -987,13 +992,13 @@ export default function App() {
     let chaptersDone = 0;
     let chaptersPartial = 0;
 
-    subjData.groups.forEach(g => {
-      const countCols = g.columns.filter(c => c.countsForPct);
-      g.chapters.forEach(ch => {
+    (subjData.groups || []).forEach(g => {
+      const countCols = (g.columns || []).filter(c => c.countsForPct);
+      (g.chapters || []).forEach(ch => {
         totalChapters++;
         totalChecks += countCols.length;
         
-        const checks = countCols.filter(c => ch.checks[c.id]).length;
+        const checks = countCols.filter(c => ch.checks && ch.checks[c.id]).length;
         doneChecks += checks;
         
         if (countCols.length > 0) {
@@ -1012,17 +1017,18 @@ export default function App() {
   };
 
   const calculateOverallPct = (state: AppState) => {
+    if (!state || !state.data) return 0;
     let totalChecks = 0;
     let doneChecks = 0;
     
     SUBJ_KEYS.forEach(k => {
       const subjData = state.data[k];
       if (subjData) {
-        subjData.groups.forEach(g => {
-          const countCols = g.columns.filter(c => c.countsForPct);
-          g.chapters.forEach(ch => {
+        (subjData.groups || []).forEach(g => {
+          const countCols = (g.columns || []).filter(c => c.countsForPct);
+          (g.chapters || []).forEach(ch => {
             totalChecks += countCols.length;
-            doneChecks += countCols.filter(c => ch.checks[c.id]).length;
+            doneChecks += countCols.filter(c => ch.checks && ch.checks[c.id]).length;
           });
         });
       }
@@ -1102,37 +1108,37 @@ export default function App() {
     // Prepare context for AI (Optimized to prevent quota issues)
     const context = {
       activeSubject: SUBJ_LABELS[activeTab as SubjectKey] || activeTab,
-      progressSummary: Object.keys(appState.data).map(subj => ({
+      progressSummary: Object.keys(appState.data || {}).map(subj => ({
         subject: subj,
         completedChapters: getSubjStats(subj).done,
         totalChapters: getSubjStats(subj).total,
       })),
-      groups: Object.keys(appState.data).map(subj => ({
+      groups: Object.keys(appState.data || {}).map(subj => ({
         subject: subj,
-        groups: appState.data[subj].groups.map(g => ({
+        groups: (appState.data[subj as SubjectKey]?.groups || []).map(g => ({
           id: g.id,
           label: g.label,
-          columns: g.columns.map(c => c.name)
+          columns: (g.columns || []).map(c => c.name)
         }))
       })),
       // Only send chapters that are currently in progress (not 0/3 and not 3/3) to save massive amounts of tokens
-      activeChapters: Object.keys(appState.data).flatMap(subj => 
-        appState.data[subj].groups.flatMap(g => 
-          g.chapters
+      activeChapters: Object.keys(appState.data || {}).flatMap(subj => 
+        (appState.data[subj as SubjectKey]?.groups || []).flatMap(g => 
+          (g.chapters || [])
             .filter(c => {
-              const checks = Object.values(c.checks).filter(Boolean).length;
-              return checks > 0 && checks < g.columns.length;
+              const checks = Object.values(c.checks || {}).filter(Boolean).length;
+              return checks > 0 && checks < (g.columns || []).length;
             })
             .map(c => ({
               subject: subj,
               groupId: g.id,
               name: c.name,
-              progress: Object.values(c.checks).filter(Boolean).length + "/" + g.columns.length
+              progress: Object.values(c.checks || {}).filter(Boolean).length + "/" + (g.columns || []).length
             }))
         )
       ),
       exams: profile.exams,
-      todoList: todoList.filter(t => !t.completed) // Only send incomplete todos
+      todoList: (todoList || []).filter(t => !t.completed) // Only send incomplete todos
     };
 
     const history = chatMessages.slice(-6).map(m => ({
@@ -1147,16 +1153,16 @@ export default function App() {
         if (call.name === "updateChapterStatus") {
           const { subject, chapterName, columnId, completed } = call.args as any;
           let targetId = null;
-          appState.data[subject]?.groups.forEach(g => {
-            const c = g.chapters.find(ch => ch.name.toLowerCase() === chapterName.toLowerCase());
+          (appState.data[subject as SubjectKey]?.groups || []).forEach(g => {
+            const c = (g.chapters || []).find(ch => ch.name.toLowerCase() === chapterName.toLowerCase());
             if (c) targetId = c.id;
           });
           if (targetId) toggleChapterCheck(subject, targetId, columnId, completed);
         } else if (call.name === "addChapterNote") {
           const { subject, chapterName, note } = call.args as any;
           let targetId = null;
-          appState.data[subject]?.groups.forEach(g => {
-            const c = g.chapters.find(ch => ch.name.toLowerCase() === chapterName.toLowerCase());
+          (appState.data[subject as SubjectKey]?.groups || []).forEach(g => {
+            const c = (g.chapters || []).find(ch => ch.name.toLowerCase() === chapterName.toLowerCase());
             if (c) targetId = c.id;
           });
           if (targetId) updateChapterNote(subject, targetId, note);
@@ -1536,14 +1542,14 @@ export default function App() {
                         </div>
                       </div>
                       <div className="px-3 py-1.5 bg-[var(--cream2)] border border-[var(--parch)] rounded-full text-[10px] font-mono font-bold">
-                        {todoList.filter(t => t.date === todoDate && t.completed).length}/{todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).length}
+                        {((todoList || []).filter(t => t.date === todoDate && t.completed).length)}/{((todoList || []).filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).length)}
                       </div>
                     </div>
                   </div>
                   
                   <div className="flex-1 space-y-3 overflow-y-auto pr-2 ai-scrollbar min-h-[200px]">
                     <AnimatePresence initial={false}>
-                      {todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).map((todo, idx) => {
+                      {(todoList || []).filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).map((todo, idx) => {
                         const isOverdue = !todo.completed && todo.date < todoDate;
                         const actualIdx = todoList.findIndex(t => t === todo);
                         const formattedTodoDate = new Date(todo.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
@@ -1586,7 +1592,7 @@ export default function App() {
                         </motion.div>
                       )})}
                     </AnimatePresence>
-                    {todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).length === 0 && (
+                    {((todoList || []).filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).length === 0) && (
                       <div className="h-full flex flex-col items-center justify-center text-center py-10 border-2 border-dashed border-[var(--parch)] rounded-3xl">
                         <Target className="w-8 h-8 text-[var(--parch)] mb-2" />
                         <p className="text-xs text-[var(--ink4)] italic">What's the plan for {todoDate === new Date().toISOString().split('T')[0] ? "today" : new Date(todoDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}?</p>
@@ -1629,7 +1635,7 @@ export default function App() {
 
                 {/* Exam Countdowns (Stacked in Sidebar) */}
                 <div className="space-y-4">
-                  {profile.exams.map((exam, idx) => {
+                  {(profile.exams || []).map((exam, idx) => {
                     // Parse date as local midnight to avoid timezone issues
                     const examDate = new Date(exam.date + "T00:00:00");
                     const today = new Date();
@@ -1756,8 +1762,8 @@ export default function App() {
           <div className="space-y-4">
             <h3 className="font-serif text-xl font-medium mb-4">Search Results</h3>
             {SUBJ_KEYS.flatMap(subj => 
-              appState.data[subj].groups.flatMap(g => 
-                g.chapters.filter(ch => ch.name.toLowerCase().includes(searchQuery.toLowerCase()) || ch.notes?.some(n => n.text.toLowerCase().includes(searchQuery.toLowerCase()))).map(ch => ({ subj, g, ch }))
+              (appState.data[subj]?.groups || []).flatMap(g => 
+                (g.chapters || []).filter(ch => ch.name.toLowerCase().includes(searchQuery.toLowerCase()) || ch.notes?.some(n => n.text.toLowerCase().includes(searchQuery.toLowerCase()))).map(ch => ({ subj, g, ch }))
               )
             ).map(({ subj, g, ch }, idx) => (
               <div key={`${subj}-${ch.id}-search-${idx}`} className="p-4 bg-[var(--cream)] border border-[var(--parch)] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1770,9 +1776,9 @@ export default function App() {
                   <h4 className="font-medium text-[var(--ink)]">{ch.name}</h4>
                 </div>
                 <div className="flex gap-2">
-                  {g.columns.map(col => (
+                  {g.columns.map((col, cIdx) => (
                     <button 
-                      key={`${subj}-${ch.id}-${col.id}-search`}
+                      key={`${subj}-${ch.id}-${col.id}-search-${idx}-${cIdx}`}
                       onClick={() => toggleChapterCheck(subj, ch.id, col.id)}
                       className={cn(
                         "w-8 h-8 rounded-md border-2 transition-all flex items-center justify-center",
@@ -1787,8 +1793,8 @@ export default function App() {
               </div>
             ))}
             {SUBJ_KEYS.flatMap(subj => 
-              appState.data[subj].groups.flatMap(g => 
-                g.chapters.filter(ch => ch.name.toLowerCase().includes(searchQuery.toLowerCase()) || ch.notes?.some(n => n.text.toLowerCase().includes(searchQuery.toLowerCase())))
+              (appState.data[subj]?.groups || []).flatMap(g => 
+                (g.chapters || []).filter(ch => ch.name.toLowerCase().includes(searchQuery.toLowerCase()) || ch.notes?.some(n => n.text.toLowerCase().includes(searchQuery.toLowerCase())))
               )
             ).length === 0 && (
               <div className="py-10 text-center border-2 border-dashed border-[var(--parch)] rounded-2xl">
@@ -1821,8 +1827,8 @@ export default function App() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {SUBJ_KEYS.flatMap(subj => 
-                      appState.data[subj].groups.flatMap(g => 
-                        g.chapters.filter(ch => ch.notes && ch.notes.length > 0).map(ch => ({ subj, ch }))
+                      (appState.data[subj]?.groups || []).flatMap(g => 
+                        (g.chapters || []).filter(ch => ch.notes && ch.notes.length > 0).map(ch => ({ subj, ch }))
                       )
                     ).slice(0, 6).map(({ subj, ch }, idx) => (
                       <motion.div 
@@ -1848,7 +1854,7 @@ export default function App() {
                         </div>
                       </motion.div>
                     ))}
-                    {SUBJ_KEYS.every(s => appState.data[s].groups.every(g => g.chapters.every(ch => !ch.notes || ch.notes.length === 0))) && (
+                    {SUBJ_KEYS.every(s => (appState.data[s]?.groups || []).every(g => (g.chapters || []).every(ch => !ch.notes || ch.notes.length === 0))) && (
                       <div className="col-span-full py-10 text-center border-2 border-dashed border-[var(--parch)] rounded-2xl">
                         <p className="text-sm text-[var(--ink4)] italic">No notes yet. Tell the AI Tutor to add some for you!</p>
                       </div>
@@ -1886,20 +1892,20 @@ export default function App() {
               <div className="md:overflow-visible -mx-6 px-6 md:mx-0 md:px-0">
                 {/* Desktop Table */}
                 <table className="hidden md:table w-full border-separate border-spacing-y-1">
-                  {appState.data[activeTab as SubjectKey].groups.map((group, gIdx) => (
+                  {(appState.data[activeTab as SubjectKey]?.groups || []).map((group, gIdx) => (
                     <tbody key={`${activeTab}-${group.id}-${gIdx}`}>
                       <tr>
-                        <td colSpan={group.columns.length + 1} className="px-4 pt-6 pb-2 font-mono text-[10px] uppercase tracking-widest text-[var(--ink4)] border-t border-[var(--parch)]">
+                        <td colSpan={(group.columns || []).length + 1} className="px-4 pt-6 pb-2 font-mono text-[10px] uppercase tracking-widest text-[var(--ink4)] border-t border-[var(--parch)]">
                           {group.label}
                         </td>
                       </tr>
                       <tr className="text-left">
                         <th className="px-4 py-2 font-mono text-[10px] uppercase text-[var(--ink3)]">Chapter</th>
-                        {group.columns.map(col => (
+                        {(group.columns || []).map(col => (
                           <th key={`${activeTab}-${group.id}-${col.id}`} className="px-4 py-2 text-center font-mono text-[10px] uppercase text-[var(--ink3)]">{col.name}</th>
                         ))}
                       </tr>
-                      {group.chapters.map((ch, cIdx) => (
+                      {(group.chapters || []).map((ch, cIdx) => (
                         <tr key={`${activeTab}-${ch.id}-${cIdx}`} className="group hover:bg-[var(--cream2)] transition-colors">
                           <td className="px-4 py-3 bg-[var(--cream)] rounded-l-xl border-y border-l border-transparent group-hover:border-[var(--parch)]">
                             <div className="flex items-center gap-3">
@@ -1949,13 +1955,13 @@ export default function App() {
 
                 {/* Mobile Card View */}
                 <div className="md:hidden space-y-4 pb-32">
-                  {appState.data[activeTab as SubjectKey].groups.map((group, gIdx) => (
+                  {(appState.data[activeTab as SubjectKey]?.groups || []).map((group, gIdx) => (
                     <div key={`${activeTab}-${group.id}-mobile-${gIdx}`} className="space-y-2">
                       <h3 className="px-2 font-mono text-[9px] uppercase tracking-widest text-[var(--ink4)] opacity-70">
                         {group.label}
                       </h3>
                       <div className="grid grid-cols-1 gap-2">
-                        {group.chapters.map((ch, cIdx) => (
+                        {(group.chapters || []).map((ch, cIdx) => (
                           <div key={`${activeTab}-${ch.id}-mobile-${cIdx}`} className="bg-[var(--cream)] border border-[var(--parch)] rounded-xl p-3 shadow-sm flex flex-col gap-3">
                             <div 
                               className="flex items-center gap-2 cursor-pointer"
@@ -2145,13 +2151,13 @@ export default function App() {
                 </>
               ) : (
                 <div className="space-y-2">
-                  {profile.chatSessions.length === 0 ? (
+                  {((profile.chatSessions || []).length === 0) ? (
                     <div className="text-center py-10">
                       <History className="w-10 h-10 text-[var(--parch)] mx-auto mb-3" />
                       <p className="text-xs text-[var(--ink4)] italic">No previous chats yet.</p>
                     </div>
                   ) : (
-                    profile.chatSessions.map((session, idx) => (
+                    (profile.chatSessions || []).map((session, idx) => (
                       <div 
                         key={session.id || `session-${idx}`}
                         className={cn(
@@ -2459,13 +2465,13 @@ export default function App() {
 
               <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
                 {/* Pending Requests */}
-                {(friendRequests.filter(r => r.to === user?.uid && r.status === "pending").length > 0 || 
-                  friendRequests.filter(r => r.from === user?.uid && r.status === "pending").length > 0) && (
+                {((friendRequests || []).filter(r => r.to === user?.uid && r.status === "pending").length > 0 || 
+                  (friendRequests || []).filter(r => r.from === user?.uid && r.status === "pending").length > 0) && (
                   <div className="space-y-4">
                     <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink4)] px-1">Pending Requests</h3>
                     <div className="space-y-3">
                       {/* Incoming */}
-                      {friendRequests.filter(r => r.to === user?.uid && r.status === "pending").map((req, idx) => {
+                      {(friendRequests || []).filter(r => r.to === user?.uid && r.status === "pending").map((req, idx) => {
                         const friend = friendsData[req.from];
                         return (
                           <div key={req.id || `req-in-${idx}`} className="bg-[var(--cream)] border border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4 shadow-[var(--sh-sm)]">
@@ -2495,7 +2501,7 @@ export default function App() {
                       })}
 
                       {/* Sent */}
-                      {friendRequests.filter(r => r.from === user?.uid && r.status === "pending").map((req, idx) => {
+                      {(friendRequests || []).filter(r => r.from === user?.uid && r.status === "pending").map((req, idx) => {
                         const friend = friendsData[req.to];
                         return (
                           <div key={req.id || `req-out-${idx}`} className="bg-[var(--cream2)]/50 border border-dashed border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4">
@@ -2523,14 +2529,14 @@ export default function App() {
                 {/* Friends List */}
                 <div className="space-y-4">
                   <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink4)] px-1">Friends</h3>
-                  {friendRequests.filter(r => r.status === "accepted").length === 0 ? (
+                  {((friendRequests || []).filter(r => r.status === "accepted").length === 0) ? (
                     <div className="text-center py-12 border-2 border-dashed border-[var(--parch)] rounded-2xl bg-[var(--cream2)]/30">
                       <Users className="w-8 h-8 text-[var(--ink4)] opacity-20 mx-auto mb-2" />
                       <p className="text-xs text-[var(--ink4)] italic">No friends yet. Add some to start tracking!</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {friendRequests.filter(r => r.status === "accepted").map((req, idx) => {
+                      {(friendRequests || []).filter(r => r.status === "accepted").map((req, idx) => {
                         const friendId = req.from === user?.uid ? req.to : req.from;
                         const friend = friendsData[friendId];
                         if (!friend) return null;
@@ -2976,10 +2982,10 @@ export default function App() {
                       </div>
 
                       <div className="space-y-8 mb-6">
-                        {appState.data[drawerSubj].groups.map((group, gIdx) => (
+                        {(appState.data[drawerSubj as SubjectKey]?.groups || []).map((group, gIdx) => (
                           <div key={group.id || `group-${gIdx}`} className="space-y-3">
                             <h4 className="font-serif font-medium text-[var(--ink)] flex items-center gap-2">
-                              <div className={cn("w-2 h-2 rounded-full", appState.data[drawerSubj].bg)} />
+                              <div className={cn("w-2 h-2 rounded-full", appState.data[drawerSubj as SubjectKey]?.bg)} />
                               {group.label}
                             </h4>
                             <div className="space-y-2">
@@ -3126,7 +3132,7 @@ export default function App() {
                     <div>
                       <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink3)] mb-3 block">Chapters</label>
                       <div className="space-y-1 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
-                        {appState.data[drawerSubj].groups.flatMap(g => g.chapters.map(ch => ({ ...ch, gid: g.id, gLabel: g.label }))).map((ch, i, arr) => (
+                        {(appState.data[drawerSubj as SubjectKey]?.groups || []).flatMap(g => (g.chapters || []).map(ch => ({ ...ch, gid: g.id, gLabel: g.label }))).map((ch, i, arr) => (
                           <div key={`${drawerSubj}-${ch.id}-drawer-${i}`} className="flex items-center gap-2 p-2 bg-[var(--cream2)] border border-[var(--parch)] rounded-lg group">
                             <div className="flex flex-col gap-0.5">
                               <button 
@@ -3216,7 +3222,7 @@ export default function App() {
                       <input id="new-ch-name" className="w-full p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl outline-none text-sm" placeholder="New chapter name..." />
                       <div className="flex gap-2">
                         <select id="new-ch-group" className="flex-1 p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl outline-none text-sm appearance-none">
-                          {appState.data[drawerSubj].groups.map((g, idx) => (
+                          {(appState.data[drawerSubj as SubjectKey]?.groups || []).map((g, idx) => (
                             <option key={g.id || `opt-${idx}`} value={g.id}>{g.label}</option>
                           ))}
                         </select>
@@ -3252,10 +3258,10 @@ export default function App() {
                     <div>
                       <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink3)] mb-3 block">Groups</label>
                       <div className="space-y-2">
-                        {appState.data[drawerSubj].groups.map((g, idx) => (
+                        {(appState.data[drawerSubj as SubjectKey]?.groups || []).map((g, idx) => (
                           <div key={g.id || `glist-${idx}`} className="flex items-center gap-3 p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl">
                             <span className="flex-1 text-sm font-medium">{g.label}</span>
-                            <span className="text-[9px] font-mono text-[var(--ink4)]">{g.chapters.length} ch</span>
+                            <span className="text-[9px] font-mono text-[var(--ink4)]">{(g.chapters || []).length} ch</span>
                             <button 
                               onClick={() => {
                                 setConfirmDialog({
