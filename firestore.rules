@@ -45,21 +45,20 @@ service cloud.firestore {
     
     function isValidProfile(profile) {
       return profile is map &&
-             profile.name is string && profile.name.size() > 0 && profile.name.size() < 100 &&
+             profile.name is string && profile.name.size() >= 0 && profile.name.size() < 100 &&
              profile.exams is list &&
              profile.onboarded is bool &&
              profile.darkMode is bool &&
-             profile.timerSettings is map &&
              profile.chatSessions is list &&
              profile.voiceEnabled is bool;
     }
 
     function isValidAppState(appState) {
-      return appState is map && appState.data is map;
+      return appState is map && (appState.data is map || !('data' in appState));
     }
 
     function isValidTodoList(todoList) {
-      return todoList is list && todoList.size() < 500;
+      return todoList is list && todoList.size() < 1000;
     }
 
     function isValidUser(data) {

@@ -528,6 +528,41 @@ export default function App() {
     });
   };
   const [selectedChapter, setSelectedChapter] = useState<{subj: string, ch: Chapter} | null>(null);
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [editingTodoText, setEditingTodoText] = useState("");
+
+  const toggleTodo = (id: string) => {
+    setTodoList(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+    triggerSync();
+  };
+
+  const deleteTodo = (id: string) => {
+    setTodoList(prev => prev.filter(t => t.id !== id));
+    triggerSync();
+  };
+
+  const addTodo = () => {
+    if (newTodoText.trim()) {
+      const newTodo = { id: uid(), text: newTodoText.trim(), completed: false, date: todoDate };
+      setTodoList(prev => [...prev, newTodo]);
+      setNewTodoText("");
+      triggerSync();
+    }
+  };
+
+  const startEditingTodo = (todo: Todo) => {
+    setEditingTodoId(todo.id);
+    setEditingTodoText(todo.text);
+  };
+
+  const saveEditingTodo = () => {
+    if (editingTodoId && editingTodoText.trim()) {
+      setTodoList(prev => prev.map(t => t.id === editingTodoId ? { ...t, text: editingTodoText.trim() } : t));
+      setEditingTodoId(null);
+      setEditingTodoText("");
+      triggerSync();
+    }
+  };
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [todoList, setTodoList] = useState<Todo[]>(() => {
@@ -752,10 +787,45 @@ export default function App() {
       }
     };
     
-    // Increased debounce to 30 seconds to save Firestore write quota
-    const timeout = setTimeout(saveToFirebase, 30000);
+    // Reduced debounce to 5 seconds for better responsiveness
+    const timeout = setTimeout(saveToFirebase, 5000);
     return () => clearTimeout(timeout);
   }, [appState, profile, todoList, chatMessages, isDataLoaded, user, lastSavedPayload, quotaExceeded]);
+
+  const triggerSync = async () => {
+    if (!user || quotaExceeded || !isDataLoaded) return;
+    
+    const payloadObj = {
+      appState,
+      profile,
+      todoList,
+      chatMessages,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      email: user.email,
+      friendCode: profile.friendCode,
+    };
+    
+    const payloadStr = JSON.stringify(payloadObj);
+    if (payloadStr === lastSavedPayload) return;
+
+    setIsSyncing(true);
+    try {
+      const payload = JSON.parse(payloadStr);
+      payload.updatedAt = Timestamp.now();
+      await setDoc(doc(db, "users", user.uid), payload, { merge: true });
+      setLastSavedPayload(payloadStr);
+      setLastSynced(Date.now());
+      setQuotaExceeded(false);
+    } catch (error: any) {
+      if (error?.code === 'resource-exhausted' || error?.message?.includes('quota')) {
+        setQuotaExceeded(true);
+      }
+      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const forceSync = async () => {
     if (!user) return;
@@ -819,6 +889,19 @@ export default function App() {
       ...(friendRequests || []).filter(r => r.to === user.uid && r.status === "pending").map(r => r.from),
       ...(friendRequests || []).filter(r => r.from === user.uid && r.status === "pending").map(r => r.to)
     ]));
+
+    // Cleanup friendsData for users who are no longer relevant
+    setFriendsData(prev => {
+      const next = { ...prev };
+      let changed = false;
+      Object.keys(next).forEach(key => {
+        if (!relevantUsers.includes(key)) {
+          delete next[key];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
     
     const unsubscribes: (() => void)[] = [];
     
@@ -1587,46 +1670,61 @@ export default function App() {
                     <AnimatePresence initial={false}>
                       {(todoList || []).filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).map((todo, idx) => {
                         const isOverdue = !todo.completed && todo.date < todoDate;
-                        const actualIdx = todoList.findIndex(t => t === todo);
                         const formattedTodoDate = new Date(todo.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+                        const isEditing = editingTodoId === todo.id;
+
                         return (
-                        <motion.div 
-                          key={todo.id || `todo-${idx}`}
-                          initial={{ opacity: 0, height: 0, x: -10 }}
-                          animate={{ opacity: 1, height: "auto", x: 0 }}
-                          exit={{ opacity: 0, height: 0, x: 10 }}
-                          layout
-                          className={cn(
-                            "flex items-center gap-3 group p-3 rounded-2xl transition-all border",
-                            isOverdue ? "bg-red-50/50 border-red-200 hover:border-red-300" : "hover:bg-[var(--cream2)] border-transparent hover:border-[var(--parch)]"
-                          )}
-                        >
-                          <button 
-                            onClick={() => setTodoList(prev => prev.map((t, i) => i === actualIdx ? { ...t, completed: !t.completed } : t))}
+                          <motion.div 
+                            key={todo.id || `todo-${idx}`}
+                            initial={{ opacity: 0, height: 0, x: -10 }}
+                            animate={{ opacity: 1, height: "auto", x: 0 }}
+                            exit={{ opacity: 0, height: 0, x: 10 }}
+                            layout
                             className={cn(
-                              "w-5 h-5 rounded-lg border flex items-center justify-center transition-all",
-                              todo.completed ? "bg-[var(--amber)] border-[var(--amber)] scale-90" : isOverdue ? "border-red-300 hover:border-red-500" : "border-[var(--parch)] hover:border-[var(--amber)]"
+                              "flex items-center gap-3 group p-3 rounded-2xl transition-all border",
+                              isOverdue ? "bg-red-50/50 border-red-200 hover:border-red-300" : "hover:bg-[var(--cream2)] border-transparent hover:border-[var(--parch)]"
                             )}
                           >
-                            {todo.completed && <Check className="w-3 h-3 text-white" />}
-                          </button>
-                          <div className="flex-1 min-w-0">
-                            <span className={cn(
-                              "text-sm transition-all block break-words",
-                              todo.completed ? "text-[var(--ink4)] line-through" : isOverdue ? "text-red-700 font-medium" : "text-[var(--ink2)]"
-                            )}>
-                              {todo.text}
-                            </span>
-                            {isOverdue && <span className="text-[9px] font-mono text-red-500 uppercase tracking-wider">Overdue from {formattedTodoDate}</span>}
-                          </div>
-                          <button 
-                            onClick={() => setTodoList(prev => prev.filter((_, i) => i !== actualIdx))}
-                            className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-500 rounded-lg transition-all"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </motion.div>
-                      )})}
+                            <button 
+                              onClick={() => toggleTodo(todo.id)}
+                              className={cn(
+                                "w-5 h-5 rounded-lg border flex items-center justify-center transition-all",
+                                todo.completed ? "bg-[var(--amber)] border-[var(--amber)] scale-90" : isOverdue ? "border-red-300 hover:border-red-500" : "border-[var(--parch)] hover:border-[var(--amber)]"
+                              )}
+                            >
+                              {todo.completed && <Check className="w-3 h-3 text-white" />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              {isEditing ? (
+                                <input 
+                                  autoFocus
+                                  value={editingTodoText}
+                                  onChange={(e) => setEditingTodoText(e.target.value)}
+                                  onBlur={saveEditingTodo}
+                                  onKeyDown={(e) => e.key === 'Enter' && saveEditingTodo()}
+                                  className="w-full bg-transparent text-sm outline-none border-b border-[var(--amber)]"
+                                />
+                              ) : (
+                                <span 
+                                  onClick={() => startEditingTodo(todo)}
+                                  className={cn(
+                                    "text-sm transition-all block break-words cursor-text",
+                                    todo.completed ? "text-[var(--ink4)] line-through" : isOverdue ? "text-red-700 font-medium" : "text-[var(--ink2)]"
+                                  )}
+                                >
+                                  {todo.text}
+                                </span>
+                              )}
+                              {isOverdue && <span className="text-[9px] font-mono text-red-500 uppercase tracking-wider">Overdue from {formattedTodoDate}</span>}
+                            </div>
+                            <button 
+                              onClick={() => deleteTodo(todo.id)}
+                              className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-500 rounded-lg transition-all"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </motion.div>
+                        )})}
                     </AnimatePresence>
                     {((todoList || []).filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).length === 0) && (
                       <div className="h-full flex flex-col items-center justify-center text-center py-10 border-2 border-dashed border-[var(--parch)] rounded-3xl">
@@ -1647,20 +1745,12 @@ export default function App() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            if (newTodoText.trim()) {
-                              setTodoList(prev => [...prev, { id: uid(), text: newTodoText.trim(), completed: false, date: todoDate }]);
-                              setNewTodoText("");
-                            }
+                            addTodo();
                           }
                         }}
                       />
                       <button
-                        onClick={() => {
-                          if (newTodoText.trim()) {
-                            setTodoList(prev => [...prev, { id: uid(), text: newTodoText.trim(), completed: false, date: todoDate }]);
-                            setNewTodoText("");
-                          }
-                        }}
+                        onClick={addTodo}
                         className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 bg-[var(--amber)] text-white rounded-xl shadow-sm hover:opacity-80 transition-opacity"
                       >
                         <Plus className="w-4 h-4" />
@@ -2471,10 +2561,18 @@ export default function App() {
                     <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink4)] px-1">Pending Requests</h3>
                     <div className="space-y-3">
                       {/* Incoming */}
-                      {(friendRequests || []).filter(r => r.to === user?.uid && r.status === "pending").map((req, idx) => {
+                      {Array.from(
+                        (friendRequests || [])
+                          .filter(r => r.to === user?.uid && r.status === "pending")
+                          .reduce((acc, req) => {
+                            if (!acc.has(req.from)) acc.set(req.from, req);
+                            return acc;
+                          }, new Map())
+                          .values()
+                      ).map((req: any) => {
                         const friend = friendsData[req.from];
                         return (
-                          <div key={req.id || `req-in-${idx}`} className="bg-[var(--cream)] border border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4 shadow-[var(--sh-sm)]">
+                          <div key={req.id} className="bg-[var(--cream)] border border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4 shadow-[var(--sh-sm)]">
                             <div className="w-10 h-10 rounded-full bg-[var(--amber-lt)]/20 flex items-center justify-center text-[var(--amber)] font-bold border border-[var(--parch)]">
                               {friend?.profile?.name?.[0] || "?"}
                             </div>
@@ -2501,10 +2599,18 @@ export default function App() {
                       })}
 
                       {/* Sent */}
-                      {(friendRequests || []).filter(r => r.from === user?.uid && r.status === "pending").map((req, idx) => {
+                      {Array.from(
+                        (friendRequests || [])
+                          .filter(r => r.from === user?.uid && r.status === "pending")
+                          .reduce((acc, req) => {
+                            if (!acc.has(req.to)) acc.set(req.to, req);
+                            return acc;
+                          }, new Map())
+                          .values()
+                      ).map((req: any) => {
                         const friend = friendsData[req.to];
                         return (
-                          <div key={req.id || `req-out-${idx}`} className="bg-[var(--cream2)]/50 border border-dashed border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4">
+                          <div key={req.id} className="bg-[var(--cream2)]/50 border border-dashed border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full bg-[var(--ink4)]/10 flex items-center justify-center text-[var(--ink4)] font-bold border border-[var(--parch)]">
                               {friend?.profile?.name?.[0] || "?"}
                             </div>
@@ -2536,7 +2642,16 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {(friendRequests || []).filter(r => r.status === "accepted").map((req, idx) => {
+                      {Array.from(
+                        (friendRequests || [])
+                          .filter(r => r.status === "accepted")
+                          .reduce((acc, req) => {
+                            const friendId = req.from === user?.uid ? req.to : req.from;
+                            if (!acc.has(friendId)) acc.set(friendId, req);
+                            return acc;
+                          }, new Map())
+                          .values()
+                      ).map((req: any) => {
                         const friendId = req.from === user?.uid ? req.to : req.from;
                         const friend = friendsData[friendId];
                         if (!friend) return null;
@@ -2548,7 +2663,7 @@ export default function App() {
 
                         return (
                           <div 
-                            key={friendId || `friend-${idx}`}
+                            key={req.id}
                             className="bg-[var(--cream)] border border-[var(--parch)] rounded-2xl p-4 shadow-[var(--sh-sm)] hover:border-[var(--amber)]/30 transition-all group"
                           >
                             <div className="flex items-center gap-3 mb-3">
