@@ -790,8 +790,8 @@ export default function App() {
       }
     };
     
-    // Reduced debounce to 5 seconds for better responsiveness
-    const timeout = setTimeout(saveToFirebase, 5000);
+    // Reduced debounce to 1 second for better responsiveness and to ensure AI changes are saved quickly
+    const timeout = setTimeout(saveToFirebase, 1000);
     return () => clearTimeout(timeout);
   }, [appState, profile, todoList, chatMessages, isDataLoaded, user, lastSavedPayload, quotaExceeded]);
 
@@ -1238,20 +1238,56 @@ export default function App() {
       for (const call of res.functionCalls) {
         if (call.name === "updateChapterStatus") {
           const { subject, chapterName, columnId, completed } = call.args as any;
-          let targetId = null;
-          (appState.data[subject as SubjectKey]?.groups || []).forEach(g => {
-            const c = (g.chapters || []).find(ch => ch.name.toLowerCase() === chapterName.toLowerCase());
-            if (c) targetId = c.id;
+          setAppState(prev => {
+            if (subject === "all" || !prev.data[subject as SubjectKey]) return prev;
+            return {
+              ...prev,
+              data: {
+                ...prev.data,
+                [subject]: {
+                  ...prev.data[subject as SubjectKey],
+                  groups: prev.data[subject as SubjectKey].groups.map(g => ({
+                    ...g,
+                    chapters: g.chapters.map(ch => {
+                      if (ch.name.toLowerCase() === chapterName.toLowerCase()) {
+                        return {
+                          ...ch,
+                          checks: { ...(ch.checks || {}), [columnId]: completed !== undefined ? completed : !(ch.checks?.[columnId]) }
+                        };
+                      }
+                      return ch;
+                    })
+                  }))
+                }
+              }
+            };
           });
-          if (targetId) toggleChapterCheck(subject, targetId, columnId, completed);
         } else if (call.name === "addChapterNote") {
           const { subject, chapterName, note } = call.args as any;
-          let targetId = null;
-          (appState.data[subject as SubjectKey]?.groups || []).forEach(g => {
-            const c = (g.chapters || []).find(ch => ch.name.toLowerCase() === chapterName.toLowerCase());
-            if (c) targetId = c.id;
+          setAppState(prev => {
+            if (subject === "all" || !prev.data[subject as SubjectKey]) return prev;
+            return {
+              ...prev,
+              data: {
+                ...prev.data,
+                [subject]: {
+                  ...prev.data[subject as SubjectKey],
+                  groups: prev.data[subject as SubjectKey].groups.map(g => ({
+                    ...g,
+                    chapters: g.chapters.map(ch => {
+                      if (ch.name.toLowerCase() === chapterName.toLowerCase()) {
+                        return {
+                          ...ch,
+                          notes: [...(ch.notes || []), { id: uid(), text: note }]
+                        };
+                      }
+                      return ch;
+                    })
+                  }))
+                }
+              }
+            };
           });
-          if (targetId) updateChapterNote(subject, targetId, note);
         } else if (call.name === "addExam") {
           const { name, date } = call.args as any;
           if (name && date) {
@@ -1264,12 +1300,20 @@ export default function App() {
           }
         } else if (call.name === "addChapter") {
           const { subject, groupId, name } = call.args as any;
-          setAppState(prev => {
-            const newData = { ...prev.data };
-            const g = newData[subject]?.groups.find(g => g.id === groupId);
-            if (g) g.chapters.push({ id: uid(), name, checks: {}, notes: [] });
-            return { ...prev, data: newData };
-          });
+          setAppState(prev => ({
+            ...prev,
+            data: {
+              ...prev.data,
+              [subject]: {
+                ...prev.data[subject],
+                groups: prev.data[subject].groups.map((g: Group) => 
+                  g.id === groupId 
+                    ? { ...g, chapters: [...g.chapters, { id: uid(), name, checks: {}, notes: [] }] }
+                    : g
+                )
+              }
+            }
+          }));
         } else if (call.name === "updateTodoList") {
           const { action, item, date, index } = call.args as any;
           if (action === "add" && item) {
