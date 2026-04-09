@@ -451,9 +451,12 @@ export default function App() {
     if (!user || !friendIdInput.trim()) return;
     setIsSearching(true);
     try {
-      const q = query(collection(db, "users"), where("friendCode", "==", friendIdInput.trim()));
-      const querySnapshot = await getDocs(q);
+      let querySnapshot = await getDocs(query(collection(db, "users"), where("friendCode", "==", friendIdInput.trim())));
       
+      if (querySnapshot.empty) {
+        querySnapshot = await getDocs(query(collection(db, "users"), where("profile.friendCode", "==", friendIdInput.trim())));
+      }
+
       if (querySnapshot.empty) {
         setAlertDialog({ isOpen: true, title: "Not Found", message: "No user found with this friend code." });
         return;
@@ -923,7 +926,7 @@ export default function App() {
 
   // Disable background scrolling when modals are open
   useEffect(() => {
-    if (isShareModalOpen || isRemindersOpen || isFriendsModalOpen || isDrawerOpen || isNoteModalOpen || isKbModalOpen || isTutorOpen) {
+    if (isShareModalOpen || isRemindersOpen || isFriendsModalOpen || isDrawerOpen || isNoteModalOpen || isKbModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -931,7 +934,7 @@ export default function App() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isShareModalOpen, isRemindersOpen, isFriendsModalOpen, isDrawerOpen, isNoteModalOpen, isKbModalOpen, isTutorOpen]);
+  }, [isShareModalOpen, isRemindersOpen, isFriendsModalOpen, isDrawerOpen, isNoteModalOpen, isKbModalOpen]);
 
   useEffect(() => {
     const checkReminders = () => {

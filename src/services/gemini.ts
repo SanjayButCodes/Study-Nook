@@ -77,7 +77,7 @@ const updateTodoList: FunctionDeclaration = {
     properties: {
       action: { type: Type.STRING, enum: ["add", "remove", "toggle"], description: "The action to perform." },
       item: { type: Type.STRING, description: "The to-do item text." },
-      date: { type: Type.STRING, description: "The date for the task (YYYY-MM-DD). Required for 'add' action." },
+      date: { type: Type.STRING, description: "The date for the task (YYYY-MM-DD). If the user doesn't specify a date, ALWAYS use today's date." },
       index: { type: Type.NUMBER, description: "The index of the item to remove or toggle (optional)." }
     },
     required: ["action"]
@@ -129,8 +129,10 @@ export async function callGemini(prompt: string, imageBase64?: string, imageMime
 
   const systemInstruction = `You are an expert IIT JEE tutor named Nova, trained by Sanjay. Be concise, accurate, and highly encouraging. 
 The student you are tutoring is named ${userName || "the student"}. Address them by name when appropriate.
+Today's date is ${new Date().toISOString().split('T')[0]}.
 Use markdown for formatting. Use LaTeX for all mathematical formulas (e.g., $E=mc^2$ or $$E=mc^2$$).
 You have access to the user's study tracker state. You can update chapter statuses, add notes, add major exams, add upcoming tests, add chapters, manage a to-do list, and update settings.
+When adding tasks to the to-do list, ALWAYS use today's date unless the user explicitly specifies another date.
 Current Tracker Context: ${JSON.stringify(context || "No context provided")}`;
 
   try {
