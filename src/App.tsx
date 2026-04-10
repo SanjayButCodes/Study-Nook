@@ -1410,13 +1410,9 @@ export default function App() {
             <span className="font-serif text-lg font-medium">Study <span className="text-[var(--amber)]">Nook</span></span>
             {user && (
               <div className="hidden sm:flex items-center gap-1.5 ml-2 px-2 py-1 bg-[var(--cream2)] border border-[var(--parch)] rounded-full">
-                {isSyncing ? (
-                  <Loader2 className="w-2.5 h-2.5 animate-spin text-[var(--amber)]" />
-                ) : (
-                  <Cloud className={cn("w-2.5 h-2.5", quotaExceeded ? "text-red-500" : "text-[var(--done)]")} />
-                )}
+                <Cloud className={cn("w-2.5 h-2.5", quotaExceeded ? "text-red-500" : "text-[var(--done)]")} />
                 <span className="text-[8px] font-mono uppercase tracking-tighter text-[var(--ink4)]">
-                  {isSyncing ? "Syncing" : (quotaExceeded ? "Paused" : "Synced")}
+                  {quotaExceeded ? "Paused" : "Synced"}
                 </span>
               </div>
             )}
@@ -1658,14 +1654,19 @@ export default function App() {
                       <h3 className="font-serif text-lg font-medium">Daily Focus</h3>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="relative">
+                      <div className="relative flex items-center">
                         <input 
                           type="date" 
                           value={todoDate}
                           onChange={(e) => setTodoDate(e.target.value)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50"
+                          onClick={(e) => {
+                            try {
+                              (e.target as HTMLInputElement).showPicker();
+                            } catch (err) {}
+                          }}
                         />
-                        <div className="px-3 py-1.5 bg-[var(--cream2)] border border-[var(--parch)] rounded-lg text-xs font-mono font-medium flex items-center gap-2">
+                        <div className="px-3 py-1.5 bg-[var(--cream2)] border border-[var(--parch)] rounded-lg text-xs font-mono font-medium flex items-center gap-2 pointer-events-none">
                           <Calendar className="w-3.5 h-3.5 text-[var(--ink3)]" />
                           {new Date(todoDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                         </div>
@@ -2828,8 +2829,8 @@ export default function App() {
                   <div className="mb-6">
                     <div className="text-[8px] font-mono uppercase text-[var(--ink4)] mb-2">Today's Tasks</div>
                     <div className="space-y-2">
-                      {todoList.length > 0 ? (
-                        todoList.slice(0, 4).map((todo, idx) => (
+                      {todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).length > 0 ? (
+                        todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).map((todo, idx) => (
                           <div key={todo.id || `todo-mini-${idx}`} className="flex items-center gap-2 text-xs text-[var(--ink2)]">
                             {todo.completed ? (
                               <CheckCircle2 className="w-3 h-3 text-[var(--done)]" />
@@ -2841,9 +2842,6 @@ export default function App() {
                         ))
                       ) : (
                         <div className="text-xs italic text-[var(--ink4)]">No tasks added for today.</div>
-                      )}
-                      {todoList.length > 4 && (
-                        <div className="text-[10px] text-[var(--ink4)] font-mono">+ {todoList.length - 4} more tasks</div>
                       )}
                     </div>
                   </div>
@@ -2929,12 +2927,6 @@ export default function App() {
                                 <p className="font-medium text-sm truncate">{user.displayName}</p>
                                 <p className="text-xs text-[var(--ink3)] truncate">{user.email}</p>
                               </div>
-                              <div className="flex items-center gap-1 text-[var(--done)]">
-                                {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                                <span className="text-[10px] font-bold uppercase tracking-tighter">
-                                  {isSyncing ? "Syncing" : "Synced"}
-                                </span>
-                              </div>
                             </div>
                             <button 
                               onClick={handleSignOut}
@@ -2949,10 +2941,9 @@ export default function App() {
                             )}
                             <button 
                               onClick={forceSync}
-                              disabled={isSyncing}
                               className="w-full py-2.5 bg-[var(--amber)] text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-[var(--amber-dk)] transition-colors flex items-center justify-center gap-2"
                             >
-                              {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
+                              <Cloud className="w-4 h-4" />
                               Sync Now
                             </button>
                           </>
