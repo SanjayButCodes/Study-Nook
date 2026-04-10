@@ -536,12 +536,10 @@ export default function App() {
 
   const toggleTodo = (id: string) => {
     setTodoList(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-    triggerSync();
   };
 
   const deleteTodo = (id: string) => {
     setTodoList(prev => prev.filter(t => t.id !== id));
-    triggerSync();
   };
 
   const addTodo = () => {
@@ -549,7 +547,6 @@ export default function App() {
       const newTodo = { id: uid(), text: newTodoText.trim(), completed: false, date: todoDate };
       setTodoList(prev => [...prev, newTodo]);
       setNewTodoText("");
-      triggerSync();
     }
   };
 
@@ -563,7 +560,6 @@ export default function App() {
       setTodoList(prev => prev.map(t => t.id === editingTodoId ? { ...t, text: editingTodoText.trim() } : t));
       setEditingTodoId(null);
       setEditingTodoText("");
-      triggerSync();
     }
   };
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
@@ -795,40 +791,7 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [appState, profile, todoList, chatMessages, isDataLoaded, user, lastSavedPayload, quotaExceeded]);
 
-  const triggerSync = async () => {
-    if (!user || quotaExceeded || !isDataLoaded) return;
-    
-    const payloadObj = {
-      appState,
-      profile,
-      todoList,
-      chatMessages,
-      displayName: user.displayName,
-      photoURL: user.photoURL,
-      email: user.email,
-      friendCode: profile.friendCode,
-    };
-    
-    const payloadStr = JSON.stringify(payloadObj);
-    if (payloadStr === lastSavedPayload) return;
 
-    setIsSyncing(true);
-    try {
-      const payload = JSON.parse(payloadStr);
-      payload.updatedAt = Timestamp.now();
-      await setDoc(doc(db, "users", user.uid), payload, { merge: true });
-      setLastSavedPayload(payloadStr);
-      setLastSynced(Date.now());
-      setQuotaExceeded(false);
-    } catch (error: any) {
-      if (error?.code === 'resource-exhausted' || error?.message?.includes('quota')) {
-        setQuotaExceeded(true);
-      }
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const forceSync = async () => {
     if (!user) return;
