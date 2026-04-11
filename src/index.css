@@ -121,4 +121,13 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+  
+  .katex {
+    color: inherit !important;
+  }
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.5rem;
+  }
 }

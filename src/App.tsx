@@ -46,7 +46,9 @@ import {
   Trophy,
   Cloud,
   AlertCircle,
-  Users
+  Users,
+  Edit2,
+  Pencil
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toPng } from "html-to-image";
@@ -384,9 +386,11 @@ export default function App() {
 
   useEffect(() => {
     if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+      setTimeout(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      }, 100);
     }
-  }, [chatMessages, isChatLoading]);
+  }, [chatMessages, isChatLoading, tutorTab]);
 
   const startNewChat = () => {
     if (chatMessages.length > 1) {
@@ -533,6 +537,8 @@ export default function App() {
   const [selectedChapter, setSelectedChapter] = useState<{subj: string, ch: Chapter} | null>(null);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [editingTodoText, setEditingTodoText] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
 
   const toggleTodo = (id: string) => {
     setTodoList(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
@@ -1004,7 +1010,7 @@ export default function App() {
     }));
   };
 
-  const updateChapterNote = (subj: string, chId: string, note: string) => {
+  const updateChapterNote = (subj: string, chId: string, noteId: string, noteText: string) => {
     if (subj === "all" || !appState.data[subj]) return;
     
     setAppState(prev => ({
@@ -1019,7 +1025,7 @@ export default function App() {
               if (ch.id === chId) {
                 return {
                   ...ch,
-                  notes: [...(ch.notes || []), { id: uid(), text: note }]
+                  notes: [...(ch.notes || []), { id: noteId, text: noteText }]
                 };
               }
               return ch;
@@ -1239,9 +1245,17 @@ export default function App() {
                     ...g,
                     chapters: g.chapters.map(ch => {
                       if (ch.name.toLowerCase() === chapterName.toLowerCase()) {
+                        // Format math properly if it's not already formatted
+                        let formattedNote = note;
+                        if (!formattedNote.includes('$')) {
+                          // Simple heuristic: if it contains math symbols but no $, wrap it
+                          if (/[=+\-*/^_{}\\]/.test(formattedNote) && !/[a-zA-Z]{5,}/.test(formattedNote)) {
+                            formattedNote = `$$${formattedNote}$$`;
+                          }
+                        }
                         return {
                           ...ch,
-                          notes: [...(ch.notes || []), { id: uid(), text: note }]
+                          notes: [...(ch.notes || []), { id: uid(), text: formattedNote }]
                         };
                       }
                       return ch;
@@ -2199,7 +2213,10 @@ export default function App() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 ai-scrollbar bg-[var(--cream)]">
+            <div 
+              className="flex-1 overflow-y-auto p-5 space-y-4 ai-scrollbar bg-[var(--cream)]"
+              onPointerDownCapture={(e) => e.stopPropagation()}
+            >
               {tutorTab === "chat" ? (
                 <>
                   {chatMessages.map((msg, i) => (
@@ -2292,7 +2309,10 @@ export default function App() {
             </div>
 
             {tutorTab === "chat" && (
-              <div className="p-4 border-t border-[var(--parch)] bg-[var(--cream2)]">
+              <div 
+                className="p-4 border-t border-[var(--parch)] bg-[var(--cream2)]"
+                onPointerDownCapture={(e) => e.stopPropagation()}
+              >
                 {showAiHint && chatMessages.length <= 1 && (
                   <div className="mb-3 px-2 flex justify-between items-center bg-[var(--cream)] p-2 rounded-xl border border-[var(--parch)]">
                     <p className="text-[10px] text-[var(--ink3)] italic flex items-center gap-1.5">
@@ -3769,36 +3789,119 @@ export default function App() {
                   {selectedChapter.ch.notes && selectedChapter.ch.notes.length > 0 ? (
                     selectedChapter.ch.notes.map((note, idx) => (
                       <div key={`${selectedChapter.subj}-${selectedChapter.ch.id}-note-${idx}`} className="p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl relative group/note">
-                        <div className="prose prose-sm prose-slate dark:prose-invert max-w-none text-sm leading-relaxed text-[var(--ink)]">
-                          <ReactMarkdown 
-                            remarkPlugins={[remarkMath]} 
-                            rehypePlugins={[rehypeKatex]}
-                          >
-                            {note.text}
-                          </ReactMarkdown>
-                        </div>
-                        <button 
-                          onClick={() => {
-                            const newNotes = (selectedChapter.ch.notes || []).filter((_, i) => i !== idx);
-                            setSelectedChapter(prev => prev ? { ...prev, ch: { ...prev.ch, notes: newNotes } } : null);
-                            setAppState(prev => ({
-                              ...prev,
-                              data: {
-                                ...prev.data,
-                                [selectedChapter.subj]: {
-                                  ...prev.data[selectedChapter.subj],
-                                  groups: prev.data[selectedChapter.subj].groups.map(g => ({
-                                    ...g,
-                                    chapters: g.chapters.map(ch => ch.id === selectedChapter.ch.id ? { ...ch, notes: newNotes } : ch)
-                                  }))
+                        {editingNoteId === note.id ? (
+                          <div className="relative">
+                            <textarea
+                              value={editingNoteText}
+                              onChange={(e) => setEditingNoteText(e.target.value)}
+                              className="w-full p-3 bg-[var(--cream)] border border-[var(--amber)] rounded-xl min-h-[100px] outline-none text-sm resize-y font-sans leading-relaxed"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  const val = editingNoteText.trim();
+                                  if (val) {
+                                    const newNotes = selectedChapter.ch.notes!.map(n => n.id === note.id ? { ...n, text: val } : n);
+                                    setSelectedChapter(prev => prev ? { ...prev, ch: { ...prev.ch, notes: newNotes } } : null);
+                                    setAppState(prev => ({
+                                      ...prev,
+                                      data: {
+                                        ...prev.data,
+                                        [selectedChapter.subj]: {
+                                          ...prev.data[selectedChapter.subj],
+                                          groups: prev.data[selectedChapter.subj].groups.map(g => ({
+                                            ...g,
+                                            chapters: g.chapters.map(ch => ch.id === selectedChapter.ch.id ? { ...ch, notes: newNotes } : ch)
+                                          }))
+                                        }
+                                      }
+                                    }));
+                                    setEditingNoteId(null);
+                                  }
+                                } else if (e.key === 'Escape') {
+                                  setEditingNoteId(null);
                                 }
-                              }
-                            }));
-                          }}
-                          className="absolute top-2 right-2 p-1.5 bg-red-500/10 text-red-400 rounded-lg opacity-0 group-hover/note:opacity-100 transition-opacity hover:text-red-600"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                              }}
+                            />
+                            <div className="absolute bottom-2 right-2 flex gap-1">
+                              <button onClick={() => setEditingNoteId(null)} className="p-1.5 bg-[var(--cream2)] text-[var(--ink4)] hover:text-[var(--ink2)] rounded-lg">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  const val = editingNoteText.trim();
+                                  if (val) {
+                                    const newNotes = selectedChapter.ch.notes!.map(n => n.id === note.id ? { ...n, text: val } : n);
+                                    setSelectedChapter(prev => prev ? { ...prev, ch: { ...prev.ch, notes: newNotes } } : null);
+                                    setAppState(prev => ({
+                                      ...prev,
+                                      data: {
+                                        ...prev.data,
+                                        [selectedChapter.subj]: {
+                                          ...prev.data[selectedChapter.subj],
+                                          groups: prev.data[selectedChapter.subj].groups.map(g => ({
+                                            ...g,
+                                            chapters: g.chapters.map(ch => ch.id === selectedChapter.ch.id ? { ...ch, notes: newNotes } : ch)
+                                          }))
+                                        }
+                                      }
+                                    }));
+                                    setEditingNoteId(null);
+                                  }
+                                }}
+                                className="p-1.5 bg-[var(--amber)] text-white rounded-lg"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="prose prose-sm prose-slate dark:prose-invert max-w-none text-sm leading-relaxed text-[var(--ink)] whitespace-pre-wrap">
+                              <ReactMarkdown 
+                                remarkPlugins={[remarkMath]} 
+                                rehypePlugins={[rehypeKatex]}
+                              >
+                                {note.text}
+                              </ReactMarkdown>
+                            </div>
+                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => {
+                                  setEditingNoteId(note.id || null);
+                                  setEditingNoteText(note.text);
+                                }}
+                                className="p-1.5 bg-[var(--cream)] border border-[var(--parch)] text-[var(--ink3)] rounded-lg hover:text-[var(--amber)]"
+                                title="Edit note"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  const newNotes = (selectedChapter.ch.notes || []).filter((_, i) => i !== idx);
+                                  setSelectedChapter(prev => prev ? { ...prev, ch: { ...prev.ch, notes: newNotes } } : null);
+                                  setAppState(prev => ({
+                                    ...prev,
+                                    data: {
+                                      ...prev.data,
+                                      [selectedChapter.subj]: {
+                                        ...prev.data[selectedChapter.subj],
+                                        groups: prev.data[selectedChapter.subj].groups.map(g => ({
+                                          ...g,
+                                          chapters: g.chapters.map(ch => ch.id === selectedChapter.ch.id ? { ...ch, notes: newNotes } : ch)
+                                        }))
+                                      }
+                                    }
+                                  }));
+                                }}
+                                className="p-1.5 bg-red-500/10 text-red-400 rounded-lg hover:text-red-600"
+                                title="Delete note"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ))
                   ) : (
@@ -3810,22 +3913,24 @@ export default function App() {
 
                 <div className="relative">
                   <textarea 
-                    className="w-full p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl h-24 outline-none focus:border-[var(--amber)] transition-all text-sm resize-none font-sans leading-relaxed pr-12"
-                    placeholder="Add a new note... (Math supported: $E=mc^2$)"
+                    id="note-input"
+                    className="w-full p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl min-h-[120px] outline-none focus:border-[var(--amber)] transition-all text-sm resize-y font-sans leading-relaxed pr-12"
+                    placeholder="Add a new note... (Math supported: $E=mc^2$ or $$x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}$$)&#10;Shift+Enter for new line, Enter to save."
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         const val = (e.target as HTMLTextAreaElement).value.trim();
                         if (val) {
-                          updateChapterNote(selectedChapter.subj, selectedChapter.ch.id, val);
-                          setSelectedChapter(prev => prev ? { ...prev, ch: { ...prev.ch, notes: [...(prev.ch.notes || []), { id: uid(), text: val }] } } : null);
+                          const newNoteId = uid();
+                          updateChapterNote(selectedChapter.subj, selectedChapter.ch.id, newNoteId, val);
+                          setSelectedChapter(prev => prev ? { ...prev, ch: { ...prev.ch, notes: [...(prev.ch.notes || []), { id: newNoteId, text: val }] } } : null);
                           (e.target as HTMLTextAreaElement).value = "";
                         }
                       }
                     }}
                   />
                   <div className="absolute bottom-3 right-3 text-[10px] text-[var(--ink4)] font-mono">
-                    Press Enter to add
+                    Enter to save
                   </div>
                 </div>
               </div>
