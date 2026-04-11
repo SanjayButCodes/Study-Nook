@@ -48,7 +48,11 @@ import {
   AlertCircle,
   Users,
   Edit2,
-  Pencil
+  Pencil,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toPng } from "html-to-image";
@@ -539,6 +543,116 @@ export default function App() {
   const [editingTodoText, setEditingTodoText] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteText, setEditingNoteText] = useState("");
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const updateGroupLabel = (subj: SubjectKey, groupId: string, newLabel: string) => {
+    setAppState(prev => ({
+      ...prev,
+      data: {
+        ...prev.data,
+        [subj]: {
+          ...prev.data[subj],
+          groups: prev.data[subj].groups.map(g => g.id === groupId ? { ...g, label: newLabel } : g)
+        }
+      }
+    }));
+  };
+
+  const moveGroup = (subj: SubjectKey, groupId: string, direction: 'up' | 'down') => {
+    setAppState(prev => {
+      const groups = [...prev.data[subj].groups];
+      const idx = groups.findIndex(g => g.id === groupId);
+      if (idx < 0) return prev;
+      if (direction === 'up' && idx > 0) {
+        [groups[idx - 1], groups[idx]] = [groups[idx], groups[idx - 1]];
+      } else if (direction === 'down' && idx < groups.length - 1) {
+        [groups[idx + 1], groups[idx]] = [groups[idx], groups[idx + 1]];
+      } else {
+        return prev;
+      }
+      return { ...prev, data: { ...prev.data, [subj]: { ...prev.data[subj], groups } } };
+    });
+  };
+
+  const updateChapterName = (subj: SubjectKey, groupId: string, chapterId: string, newName: string) => {
+    setAppState(prev => ({
+      ...prev,
+      data: {
+        ...prev.data,
+        [subj]: {
+          ...prev.data[subj],
+          groups: prev.data[subj].groups.map(g => g.id === groupId ? {
+            ...g,
+            chapters: g.chapters.map(ch => ch.id === chapterId ? { ...ch, name: newName } : ch)
+          } : g)
+        }
+      }
+    }));
+  };
+
+  const moveChapter = (subj: SubjectKey, groupId: string, chapterId: string, direction: 'up' | 'down') => {
+    setAppState(prev => ({
+      ...prev,
+      data: {
+        ...prev.data,
+        [subj]: {
+          ...prev.data[subj],
+          groups: prev.data[subj].groups.map(g => {
+            if (g.id !== groupId) return g;
+            const chapters = [...g.chapters];
+            const idx = chapters.findIndex(ch => ch.id === chapterId);
+            if (idx < 0) return g;
+            if (direction === 'up' && idx > 0) {
+              [chapters[idx - 1], chapters[idx]] = [chapters[idx], chapters[idx - 1]];
+            } else if (direction === 'down' && idx < chapters.length - 1) {
+              [chapters[idx + 1], chapters[idx]] = [chapters[idx], chapters[idx + 1]];
+            }
+            return { ...g, chapters };
+          })
+        }
+      }
+    }));
+  };
+
+  const updateColumnName = (subj: SubjectKey, groupId: string, columnId: string, newName: string) => {
+    setAppState(prev => ({
+      ...prev,
+      data: {
+        ...prev.data,
+        [subj]: {
+          ...prev.data[subj],
+          groups: prev.data[subj].groups.map(g => g.id === groupId ? {
+            ...g,
+            columns: (g.columns || []).map(c => c.id === columnId ? { ...c, name: newName } : c)
+          } : g)
+        }
+      }
+    }));
+  };
+
+  const moveColumn = (subj: SubjectKey, groupId: string, columnId: string, direction: 'left' | 'right') => {
+    setAppState(prev => ({
+      ...prev,
+      data: {
+        ...prev.data,
+        [subj]: {
+          ...prev.data[subj],
+          groups: prev.data[subj].groups.map(g => {
+            if (g.id !== groupId) return g;
+            const columns = [...(g.columns || [])];
+            const idx = columns.findIndex(c => c.id === columnId);
+            if (idx < 0) return g;
+            if (direction === 'left' && idx > 0) {
+              [columns[idx - 1], columns[idx]] = [columns[idx], columns[idx - 1]];
+            } else if (direction === 'right' && idx < columns.length - 1) {
+              [columns[idx + 1], columns[idx]] = [columns[idx], columns[idx + 1]];
+            }
+            return { ...g, columns };
+          })
+        }
+      }
+    }));
+  };
 
   const toggleTodo = (id: string) => {
     setTodoList(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
@@ -1173,25 +1287,14 @@ export default function App() {
         groups: (appState.data[subj as SubjectKey]?.groups || []).map(g => ({
           id: g.id,
           label: g.label,
-          columns: (g.columns || []).map(c => c.name)
+          columns: (g.columns || []).map(c => ({ id: c.id, name: c.name })),
+          chapters: g.chapters.map(ch => ({
+            id: ch.id,
+            name: ch.name,
+            progress: Object.values(ch.checks || {}).filter(Boolean).length + "/" + (g.columns || []).length
+          }))
         }))
       })),
-      // Only send chapters that are currently in progress (not 0/3 and not 3/3) to save massive amounts of tokens
-      activeChapters: Object.keys(appState.data || {}).flatMap(subj => 
-        (appState.data[subj as SubjectKey]?.groups || []).flatMap(g => 
-          (g.chapters || [])
-            .filter(c => {
-              const checks = Object.values(c.checks || {}).filter(Boolean).length;
-              return checks > 0 && checks < (g.columns || []).length;
-            })
-            .map(c => ({
-              subject: subj,
-              groupId: g.id,
-              name: c.name,
-              progress: Object.values(c.checks || {}).filter(Boolean).length + "/" + (g.columns || []).length
-            }))
-        )
-      ),
       exams: profile.exams,
       todoList: (todoList || []).filter(t => !t.completed) // Only send incomplete todos
     };
@@ -2001,7 +2104,19 @@ export default function App() {
                     <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink3)]">JEE Syllabus</p>
                   </div>
                 </div>
-                <div className="font-mono text-base md:text-lg text-[var(--ink3)]">{getSubjStats(activeTab).pct}% complete</div>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setIsEditMode(!isEditMode)}
+                    className={cn(
+                      "flex items-center justify-center p-2 rounded-lg transition-colors border",
+                      isEditMode ? "bg-[var(--amber)] text-white border-[var(--amber)]" : "bg-[var(--cream2)] text-[var(--ink3)] border-[var(--parch)] hover:border-[var(--amber)]"
+                    )}
+                    title={isEditMode ? "Done Editing" : "Edit Syllabus"}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <div className="font-mono text-base md:text-lg text-[var(--ink3)]">{getSubjStats(activeTab).pct}% complete</div>
+                </div>
               </div>
 
               <div className="md:overflow-visible -mx-6 px-6 md:mx-0 md:px-0">
@@ -2011,13 +2126,41 @@ export default function App() {
                     <tbody key={`${activeTab}-${group.id}-${gIdx}`}>
                       <tr>
                         <td colSpan={(group.columns || []).length + 1} className="px-4 pt-6 pb-2 font-mono text-[10px] uppercase tracking-widest text-[var(--ink4)] border-t border-[var(--parch)]">
-                          {group.label}
+                          {isEditMode ? (
+                            <div className="flex items-center gap-2">
+                              <input 
+                                value={group.label}
+                                onChange={(e) => updateGroupLabel(activeTab as SubjectKey, group.id, e.target.value)}
+                                className="bg-transparent border-b border-dashed border-[var(--ink4)] outline-none focus:border-[var(--amber)] text-[var(--ink)]"
+                              />
+                              <button onClick={() => moveGroup(activeTab as SubjectKey, group.id, 'up')} className="p-1 hover:text-[var(--amber)]"><ArrowUp className="w-3 h-3" /></button>
+                              <button onClick={() => moveGroup(activeTab as SubjectKey, group.id, 'down')} className="p-1 hover:text-[var(--amber)]"><ArrowDown className="w-3 h-3" /></button>
+                            </div>
+                          ) : (
+                            group.label
+                          )}
                         </td>
                       </tr>
                       <tr className="text-left">
                         <th className="px-4 py-2 font-mono text-[10px] uppercase text-[var(--ink3)]">Chapter</th>
                         {(group.columns || []).map(col => (
-                          <th key={`${activeTab}-${group.id}-${col.id}`} className="px-4 py-2 text-center font-mono text-[10px] uppercase text-[var(--ink3)]">{col.name}</th>
+                          <th key={`${activeTab}-${group.id}-${col.id}`} className="px-4 py-2 text-center font-mono text-[10px] uppercase text-[var(--ink3)]">
+                            {isEditMode ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <input 
+                                  value={col.name}
+                                  onChange={(e) => updateColumnName(activeTab as SubjectKey, group.id, col.id, e.target.value)}
+                                  className="bg-transparent border-b border-dashed border-[var(--ink4)] outline-none focus:border-[var(--amber)] text-[var(--ink)] text-center w-16"
+                                />
+                                <div className="flex items-center">
+                                  <button onClick={() => moveColumn(activeTab as SubjectKey, group.id, col.id, 'left')} className="p-1 hover:text-[var(--amber)]"><ArrowLeft className="w-3 h-3" /></button>
+                                  <button onClick={() => moveColumn(activeTab as SubjectKey, group.id, col.id, 'right')} className="p-1 hover:text-[var(--amber)]"><ArrowRight className="w-3 h-3" /></button>
+                                </div>
+                              </div>
+                            ) : (
+                              col.name
+                            )}
+                          </th>
                         ))}
                       </tr>
                       {(group.chapters || []).map((ch, cIdx) => (
@@ -2030,20 +2173,36 @@ export default function App() {
                                 Object.values(ch.checks || {}).filter(Boolean).length > 0 ? "bg-[var(--gold)]" : "bg-[var(--cream3)] border border-[var(--parch)]"
                               )} />
                               <div 
-                                className="flex flex-col cursor-help"
+                                className="flex flex-col cursor-help flex-1"
                                 onClick={() => {
-                                  setSelectedChapter({ subj: activeTab as SubjectKey, ch });
-                                  setIsNoteModalOpen(true);
+                                  if (!isEditMode) {
+                                    setSelectedChapter({ subj: activeTab as SubjectKey, ch });
+                                    setIsNoteModalOpen(true);
+                                  }
                                 }}
                               >
-                                <span className="text-sm text-[var(--ink2)] group-hover:text-[var(--amber)] transition-colors">{ch.name}</span>
-                                {ch.notes && ch.notes.length > 0 && (
-                                  <div className="flex items-center gap-1 mt-0.5">
-                                    <FileText className="w-2.5 h-2.5 text-[var(--amber)]" />
-                                    <span className="text-[10px] text-[var(--amber)] italic line-clamp-1 max-w-[150px]">
-                                      {ch.notes[ch.notes.length - 1].text}
-                                    </span>
+                                {isEditMode ? (
+                                  <div className="flex items-center gap-2">
+                                    <input 
+                                      value={ch.name}
+                                      onChange={(e) => updateChapterName(activeTab as SubjectKey, group.id, ch.id, e.target.value)}
+                                      className="bg-transparent border-b border-dashed border-[var(--ink4)] outline-none focus:border-[var(--amber)] text-[var(--ink)] flex-1 text-sm"
+                                    />
+                                    <button onClick={(e) => { e.stopPropagation(); moveChapter(activeTab as SubjectKey, group.id, ch.id, 'up'); }} className="p-1 hover:text-[var(--amber)]"><ArrowUp className="w-3 h-3" /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); moveChapter(activeTab as SubjectKey, group.id, ch.id, 'down'); }} className="p-1 hover:text-[var(--amber)]"><ArrowDown className="w-3 h-3" /></button>
                                   </div>
+                                ) : (
+                                  <>
+                                    <span className="text-sm text-[var(--ink2)] group-hover:text-[var(--amber)] transition-colors">{ch.name}</span>
+                                    {ch.notes && ch.notes.length > 0 && (
+                                      <div className="flex items-center gap-1 mt-0.5">
+                                        <FileText className="w-2.5 h-2.5 text-[var(--amber)]" />
+                                        <span className="text-[10px] text-[var(--amber)] italic line-clamp-1 max-w-[150px]">
+                                          {ch.notes[ch.notes.length - 1].text}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -2073,7 +2232,19 @@ export default function App() {
                   {(appState.data[activeTab as SubjectKey]?.groups || []).map((group, gIdx) => (
                     <div key={`${activeTab}-${group.id}-mobile-${gIdx}`} className="space-y-2">
                       <h3 className="px-2 font-mono text-[9px] uppercase tracking-widest text-[var(--ink4)] opacity-70">
-                        {group.label}
+                        {isEditMode ? (
+                          <div className="flex items-center gap-2">
+                            <input 
+                              value={group.label}
+                              onChange={(e) => updateGroupLabel(activeTab as SubjectKey, group.id, e.target.value)}
+                              className="bg-transparent border-b border-dashed border-[var(--ink4)] outline-none focus:border-[var(--amber)] text-[var(--ink)]"
+                            />
+                            <button onClick={() => moveGroup(activeTab as SubjectKey, group.id, 'up')} className="p-1 hover:text-[var(--amber)]"><ArrowUp className="w-3 h-3" /></button>
+                            <button onClick={() => moveGroup(activeTab as SubjectKey, group.id, 'down')} className="p-1 hover:text-[var(--amber)]"><ArrowDown className="w-3 h-3" /></button>
+                          </div>
+                        ) : (
+                          group.label
+                        )}
                       </h3>
                       <div className="grid grid-cols-1 gap-2">
                         {(group.chapters || []).map((ch, cIdx) => (
@@ -2081,8 +2252,10 @@ export default function App() {
                             <div 
                               className="flex items-center gap-2 cursor-pointer"
                               onClick={() => {
-                                setSelectedChapter({ subj: activeTab as SubjectKey, ch });
-                                setIsNoteModalOpen(true);
+                                if (!isEditMode) {
+                                  setSelectedChapter({ subj: activeTab as SubjectKey, ch });
+                                  setIsNoteModalOpen(true);
+                                }
                               }}
                             >
                               <div className={cn(
@@ -2091,17 +2264,31 @@ export default function App() {
                                 Object.values(ch.checks || {}).filter(Boolean).length > 0 ? "bg-[var(--gold)]" : "bg-[var(--cream3)] border border-[var(--parch)]"
                               )} />
                               <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-medium text-[var(--ink2)] leading-tight truncate">{ch.name}</h4>
-                                {ch.notes && ch.notes.length > 0 && (
-                                  <div className="flex items-center gap-1 mt-0.5">
-                                    <FileText className="w-2.5 h-2.5 text-[var(--amber)]" />
-                                    <span className="text-[9px] text-[var(--amber)] italic truncate">
-                                      {ch.notes.length} note{ch.notes.length > 1 ? 's' : ''} added
-                                    </span>
+                                {isEditMode ? (
+                                  <div className="flex items-center gap-2">
+                                    <input 
+                                      value={ch.name}
+                                      onChange={(e) => updateChapterName(activeTab as SubjectKey, group.id, ch.id, e.target.value)}
+                                      className="bg-transparent border-b border-dashed border-[var(--ink4)] outline-none focus:border-[var(--amber)] text-[var(--ink)] flex-1 text-sm"
+                                    />
+                                    <button onClick={(e) => { e.stopPropagation(); moveChapter(activeTab as SubjectKey, group.id, ch.id, 'up'); }} className="p-1 hover:text-[var(--amber)]"><ArrowUp className="w-3 h-3" /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); moveChapter(activeTab as SubjectKey, group.id, ch.id, 'down'); }} className="p-1 hover:text-[var(--amber)]"><ArrowDown className="w-3 h-3" /></button>
                                   </div>
+                                ) : (
+                                  <>
+                                    <h4 className="text-sm font-medium text-[var(--ink2)] leading-tight truncate">{ch.name}</h4>
+                                    {ch.notes && ch.notes.length > 0 && (
+                                      <div className="flex items-center gap-1 mt-0.5">
+                                        <FileText className="w-2.5 h-2.5 text-[var(--amber)]" />
+                                        <span className="text-[9px] text-[var(--amber)] italic truncate">
+                                          {ch.notes.length} note{ch.notes.length > 1 ? 's' : ''} added
+                                        </span>
+                                      </div>
+                                    )}
+                                  </>
                                 )}
                               </div>
-                              <ChevronRight className="w-3 h-3 text-[var(--ink4)]" />
+                              {!isEditMode && <ChevronRight className="w-3 h-3 text-[var(--ink4)]" />}
                             </div>
                             
                             <div className="flex flex-wrap gap-1.5">
@@ -3462,7 +3649,7 @@ export default function App() {
                       <div className="grid grid-cols-2 gap-3">
                         <button 
                           onClick={() => {
-                            const data = { appState, profile, todoList };
+                            const data = { appState, profile, todoList, chatMessages };
                             const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement("a");
@@ -3493,6 +3680,7 @@ export default function App() {
                                   if (data.appState) setAppState(data.appState);
                                   if (data.profile) setProfile(data.profile);
                                   if (data.todoList) setTodoList(data.todoList);
+                                  if (data.chatMessages) setChatMessages(data.chatMessages);
                                   setAlertDialog({
                                     isOpen: true,
                                     title: "Import Successful",
