@@ -826,6 +826,17 @@ export default function App() {
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        
+        const localLastUpdated = parseInt(localStorage.getItem("jee_last_updated") || "0", 10);
+        const cloudLastUpdated = data.lastUpdated || 0;
+
+        // If local data is significantly newer (e.g., by more than 10 seconds), don't overwrite
+        if (localLastUpdated > cloudLastUpdated + 10000) {
+          console.warn("Local data is newer than cloud data. Skipping overwrite to prevent data loss.");
+          setIsDataLoaded(true);
+          return;
+        }
+
         if (data.appState) setAppState(data.appState);
         if (data.profile) {
           setProfile(prev => ({
@@ -874,7 +885,7 @@ export default function App() {
     const saveToFirebase = async () => {
       if (quotaExceeded || !isDataLoaded || !user) return;
       
-      const payloadObj = {
+      const payloadObjForCompare = {
         appState,
         profile,
         todoList,
@@ -885,13 +896,19 @@ export default function App() {
         friendCode: profile.friendCode,
       };
       
-      const payloadStr = JSON.stringify(payloadObj);
+      const payloadStr = JSON.stringify(payloadObjForCompare);
       if (payloadStr === lastSavedPayload) return;
+
+      const now = Date.now();
+      localStorage.setItem("jee_last_updated", now.toString());
 
       setIsSyncing(true);
       try {
-        const payload = JSON.parse(payloadStr);
-        payload.updatedAt = Timestamp.now();
+        const payload = {
+          ...payloadObjForCompare,
+          lastUpdated: now,
+          updatedAt: Timestamp.now()
+        };
         await setDoc(doc(db, "users", user.uid), payload, { merge: true });
         setLastSavedPayload(payloadStr);
         setLastSynced(Date.now());
@@ -1410,8 +1427,10 @@ export default function App() {
             data: {
               ...prev.data,
               [subject]: {
-                ...prev.data[subject],
-                groups: prev.data[subject].groups.map((g: Group) => g.id === groupId ? { ...g, columns } : g)
+                ...prev.data[subject as SubjectKey],
+                groups: prev.data[subject as SubjectKey].groups.map(g => 
+                  g.id === groupId ? { ...g, columns } : g
+                )
               }
             }
           }));
