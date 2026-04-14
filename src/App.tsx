@@ -45,6 +45,7 @@ import {
   Share2,
   Trophy,
   Cloud,
+  CloudOff,
   AlertCircle,
   Users,
   Edit2,
@@ -230,6 +231,19 @@ export default function App() {
     return localStorage.getItem("jee_skip_auth") !== "true";
   });
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const [lastSynced, setLastSynced] = useState<number | null>(null);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => localStorage.getItem("jee_notifications") === "true");
@@ -824,6 +838,9 @@ export default function App() {
 
     const docRef = doc(db, "users", user.uid);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      // If the snapshot is from a local write, we already have the state
+      if (docSnap.metadata.hasPendingWrites) return;
+
       if (docSnap.exists()) {
         const data = docSnap.data();
         
@@ -837,6 +854,7 @@ export default function App() {
           return;
         }
 
+        // Update local state
         if (data.appState) setAppState(data.appState);
         if (data.profile) {
           setProfile(prev => ({
@@ -847,6 +865,19 @@ export default function App() {
         }
         if (data.todoList) setTodoList(data.todoList);
         if (data.chatMessages) setChatMessages(data.chatMessages);
+        
+        // Update comparison payload to prevent immediate re-save
+        const loadedPayload = {
+          appState: data.appState,
+          profile: data.profile,
+          todoList: data.todoList,
+          chatMessages: data.chatMessages,
+          displayName: data.displayName,
+          photoURL: data.photoURL,
+          email: data.email,
+          friendCode: data.friendCode,
+        };
+        setLastSavedPayload(JSON.stringify(loadedPayload));
         setLastSynced(Date.now());
       }
       setIsDataLoaded(true);
@@ -883,7 +914,7 @@ export default function App() {
   useEffect(() => {
     if (!isDataLoaded || !user) return;
     const saveToFirebase = async () => {
-      if (quotaExceeded || !isDataLoaded || !user) return;
+      if (quotaExceeded || !isDataLoaded || !user || !isOnline) return;
       
       const payloadObjForCompare = {
         appState,
@@ -923,17 +954,24 @@ export default function App() {
       }
     };
     
-    // Reduced debounce to 1 second for better responsiveness and to ensure AI changes are saved quickly
-    const timeout = setTimeout(saveToFirebase, 1000);
+    // Increased debounce to 5 seconds to reduce sync frequency
+    const timeout = setTimeout(saveToFirebase, 5000);
     return () => clearTimeout(timeout);
-  }, [appState, profile, todoList, chatMessages, isDataLoaded, user, lastSavedPayload, quotaExceeded]);
+  }, [appState, profile, todoList, chatMessages, isDataLoaded, user, lastSavedPayload, quotaExceeded, isOnline]);
 
 
 
   const forceSync = async () => {
     if (!user) return;
+    if (!isOnline) {
+      setAlertDialog({ isOpen: true, title: "Offline", message: "You are currently offline. Please check your connection." });
+      return;
+    }
     setIsSyncing(true);
     try {
+      const now = Date.now();
+      localStorage.setItem("jee_last_updated", now.toString());
+      
       const payloadObj = {
         appState,
         profile,
@@ -944,7 +982,7 @@ export default function App() {
         email: user.email,
         friendCode: profile.friendCode,
       };
-      const payload = { ...payloadObj, updatedAt: Timestamp.now() };
+      const payload = { ...payloadObj, lastUpdated: now, updatedAt: Timestamp.now() };
       await setDoc(doc(db, "users", user.uid), payload, { merge: true });
       setLastSavedPayload(JSON.stringify(payloadObj));
       setLastSynced(Date.now());
@@ -1546,10 +1584,27 @@ export default function App() {
             <span className="font-serif text-lg font-medium">Study <span className="text-[var(--amber)]">Nook</span></span>
             {user && (
               <div className="hidden sm:flex items-center gap-1.5 ml-2 px-2 py-1 bg-[var(--cream2)] border border-[var(--parch)] rounded-full">
-                <Cloud className={cn("w-2.5 h-2.5", quotaExceeded ? "text-red-500" : "text-[var(--done)]")} />
-                <span className="text-[8px] font-mono uppercase tracking-tighter text-[var(--ink4)]">
-                  {quotaExceeded ? "Paused" : "Synced"}
-                </span>
+                {quotaExceeded ? (
+                  <>
+                    <AlertCircle className="w-2.5 h-2.5 text-red-500" />
+                    <span className="text-[8px] font-mono uppercase tracking-tighter text-red-600">Paused</span>
+                  </>
+                ) : !isOnline ? (
+                  <>
+                    <CloudOff className="w-2.5 h-2.5 text-[var(--ink4)]" />
+                    <span className="text-[8px] font-mono uppercase tracking-tighter text-[var(--ink4)]">Offline</span>
+                  </>
+                ) : isSyncing ? (
+                  <>
+                    <RefreshCw className="w-2.5 h-2.5 text-[var(--amber)] animate-spin" />
+                    <span className="text-[8px] font-mono uppercase tracking-tighter text-[var(--amber)]">Syncing</span>
+                  </>
+                ) : (
+                  <>
+                    <Cloud className="w-2.5 h-2.5 text-[var(--done)]" />
+                    <span className="text-[8px] font-mono uppercase tracking-tighter text-[var(--ink4)]">Synced</span>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -4183,7 +4238,7 @@ export default function App() {
         )}
 
         {alertDialog?.isOpen && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-6 z-[4000]">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-6 z-[9999]">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
