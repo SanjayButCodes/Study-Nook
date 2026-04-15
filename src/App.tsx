@@ -473,12 +473,8 @@ export default function App() {
     if (!user || !friendIdInput.trim()) return;
     setIsSearching(true);
     try {
-      let querySnapshot = await getDocs(query(collection(db, "users"), where("friendCode", "==", friendIdInput.trim())));
+      let querySnapshot = await getDocs(query(collection(db, "userPublic"), where("profile.friendCode", "==", friendIdInput.trim())));
       
-      if (querySnapshot.empty) {
-        querySnapshot = await getDocs(query(collection(db, "users"), where("profile.friendCode", "==", friendIdInput.trim())));
-      }
-
       if (querySnapshot.empty) {
         setAlertDialog({ isOpen: true, title: "Not Found", message: "No user found with this friend code." });
         return;
@@ -901,15 +897,16 @@ export default function App() {
     const saveToFirebase = async () => {
       if (quotaExceeded || !isDataLoaded || !user || !isOnline) return;
       
-      const payloadObjForCompare = {
+      const payloadObjForCompare = JSON.parse(JSON.stringify({
         appState,
         profile,
         todoList,
+        chatMessages,
         displayName: user.displayName,
         photoURL: user.photoURL,
         email: user.email,
         friendCode: profile.friendCode,
-      };
+      }));
       
       const now = Date.now();
       lastSavedTimeRef.current = now;
@@ -924,11 +921,11 @@ export default function App() {
         await setDoc(doc(db, "users", user.uid), payload, { merge: true });
         
         // Write public summary for friends
-        const publicPayload = {
+        const publicPayload = JSON.parse(JSON.stringify({
           profile: { name: profile.name, friendCode: profile.friendCode },
           todoList: todoList,
           lastUpdated: now
-        };
+        }));
         await setDoc(doc(db, "userPublic", user.uid), publicPayload, { merge: true });
 
         setLastSynced(Date.now());
@@ -946,7 +943,7 @@ export default function App() {
     // Increased debounce to 30 seconds to significantly reduce sync frequency
     const timeout = setTimeout(saveToFirebase, 30000);
     return () => clearTimeout(timeout);
-  }, [appState, profile, todoList, isDataLoaded, user, quotaExceeded, isOnline]);
+  }, [appState, profile, todoList, chatMessages, isDataLoaded, user, quotaExceeded, isOnline]);
 
 
 
@@ -961,23 +958,24 @@ export default function App() {
       const now = Date.now();
       lastSavedTimeRef.current = now;
       
-      const payloadObj = {
+      const payloadObj = JSON.parse(JSON.stringify({
         appState,
         profile,
         todoList,
+        chatMessages,
         displayName: user.displayName,
         photoURL: user.photoURL,
         email: user.email,
         friendCode: profile.friendCode,
-      };
+      }));
       const payload = { ...payloadObj, lastUpdated: now, updatedAt: Timestamp.now() };
       await setDoc(doc(db, "users", user.uid), payload, { merge: true });
       
-      const publicPayload = {
+      const publicPayload = JSON.parse(JSON.stringify({
         profile: { name: profile.name, friendCode: profile.friendCode },
         todoList: todoList,
         lastUpdated: now
-      };
+      }));
       await setDoc(doc(db, "userPublic", user.uid), publicPayload, { merge: true });
 
       setLastSynced(Date.now());
@@ -996,25 +994,39 @@ export default function App() {
   // Fetch Friend Requests
   useEffect(() => {
     if (!user) return;
-    const q = query(
-      collection(db, "friendRequests"),
-      or(
-        where("to", "==", user.uid),
-        where("from", "==", user.uid)
-      )
-    );
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const reqs: FriendRequest[] = [];
-      snapshot.forEach((doc) => {
-        reqs.push({ id: doc.id, ...doc.data() } as FriendRequest);
-      });
-      setFriendRequests(reqs);
+    const qFrom = query(collection(db, "friendRequests"), where("from", "==", user.uid));
+    const qTo = query(collection(db, "friendRequests"), where("to", "==", user.uid));
+
+    let reqsFrom: FriendRequest[] = [];
+    let reqsTo: FriendRequest[] = [];
+
+    const updateReqs = () => {
+      const combined = [...reqsFrom, ...reqsTo];
+      const unique = Array.from(new Map(combined.map(r => [r.id, r])).values());
+      setFriendRequests(unique);
+    };
+
+    const unsubFrom = onSnapshot(qFrom, (snapshot) => {
+      reqsFrom = [];
+      snapshot.forEach((doc) => reqsFrom.push({ id: doc.id, ...doc.data() } as FriendRequest));
+      updateReqs();
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, "friendRequests");
+      handleFirestoreError(error, OperationType.GET, "friendRequests/from");
     });
 
-    return () => unsubscribe();
+    const unsubTo = onSnapshot(qTo, (snapshot) => {
+      reqsTo = [];
+      snapshot.forEach((doc) => reqsTo.push({ id: doc.id, ...doc.data() } as FriendRequest));
+      updateReqs();
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, "friendRequests/to");
+    });
+
+    return () => {
+      unsubFrom();
+      unsubTo();
+    };
   }, [user]);
 
   // Fetch Friends Data
@@ -1712,7 +1724,7 @@ export default function App() {
                     const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                     
                     return (
-                      <div key={test.id || `test-${idx}`} className="flex items-center justify-between p-3 bg-[var(--cream)] border border-[var(--parch)] rounded-xl group hover:border-[var(--amber)] transition-all shadow-[var(--sh-sm)]">
+                      <div key={test.id ? `test-${test.id}-${idx}` : `test-${idx}`} className="flex items-center justify-between p-3 bg-[var(--cream)] border border-[var(--parch)] rounded-xl group hover:border-[var(--amber)] transition-all shadow-[var(--sh-sm)]">
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-medium text-[var(--ink2)] truncate">{test.name}</h4>
                           <p className="text-[10px] font-mono text-[var(--ink4)] uppercase tracking-wider">
@@ -1878,7 +1890,7 @@ export default function App() {
 
                         return (
                           <motion.div 
-                            key={todo.id || `todo-${idx}`}
+                            key={todo.id ? `todo-${todo.id}-${idx}` : `todo-${idx}`}
                             initial={{ opacity: 0, height: 0, x: -10 }}
                             animate={{ opacity: 1, height: "auto", x: 0 }}
                             exit={{ opacity: 0, height: 0, x: 10 }}
@@ -1973,7 +1985,7 @@ export default function App() {
                     const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                     return (
                       <motion.div 
-                        key={exam.id || `exam-${idx}`}
+                        key={exam.id ? `exam-${exam.id}-${idx}` : `exam-${idx}`}
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         whileHover={{ scale: 1.02 }}
@@ -2482,7 +2494,7 @@ export default function App() {
               {tutorTab === "chat" ? (
                 <>
                   {chatMessages.map((msg, i) => (
-                    <div key={msg.id || `msg-${i}`} className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}>
+                    <div key={msg.id ? `msg-${msg.id}-${i}` : `msg-${i}`} className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}>
                       {msg.image && (
                         <img src={msg.image} alt="Uploaded" className="max-w-[200px] rounded-xl mb-2 border border-[var(--parch)]" />
                       )}
@@ -2539,7 +2551,7 @@ export default function App() {
                   ) : (
                     (profile.chatSessions || []).map((session, idx) => (
                       <div 
-                        key={session.id || `session-${idx}`}
+                        key={session.id ? `session-${session.id}-${idx}` : `session-${idx}`}
                         className={cn(
                           "p-4 rounded-2xl border transition-all cursor-pointer group/session",
                           currentSessionId === session.id ? "bg-[var(--amber-lt)] border-[var(--amber)]" : "bg-[var(--cream2)] border-[var(--parch)] hover:border-[var(--amber)]"
@@ -2685,7 +2697,7 @@ export default function App() {
               <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
                 {profile.reminders && profile.reminders.length > 0 ? (
                   (profile.reminders || []).map((reminder, idx) => (
-                    <div key={reminder.id || `reminder-${idx}`} className="flex items-center justify-between p-4 bg-[var(--cream2)] rounded-2xl border border-[var(--parch)]">
+                    <div key={reminder.id ? `reminder-${reminder.id}-${idx}` : `reminder-${idx}`} className="flex items-center justify-between p-4 bg-[var(--cream2)] rounded-2xl border border-[var(--parch)]">
                       <div className="flex items-center gap-4">
                         <div className="p-2 bg-[var(--cream)] rounded-xl shadow-sm">
                           <Clock className="w-4 h-4 text-[var(--ink3)]" />
@@ -2865,7 +2877,7 @@ export default function App() {
                       ).map((req: any) => {
                         const friend = friendsData[req.from];
                         return (
-                          <div key={req.id} className="bg-[var(--cream)] border border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4 shadow-[var(--sh-sm)]">
+                          <div key={`incoming-${req.id}`} className="bg-[var(--cream)] border border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4 shadow-[var(--sh-sm)]">
                             <div className="w-10 h-10 rounded-full bg-[var(--amber-lt)]/20 flex items-center justify-center text-[var(--amber)] font-bold border border-[var(--parch)]">
                               {friend?.profile?.name?.[0] || "?"}
                             </div>
@@ -2903,7 +2915,7 @@ export default function App() {
                       ).map((req: any) => {
                         const friend = friendsData[req.to];
                         return (
-                          <div key={req.id} className="bg-[var(--cream2)]/50 border border-dashed border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4">
+                          <div key={`sent-${req.id}`} className="bg-[var(--cream2)]/50 border border-dashed border-[var(--parch)] rounded-2xl p-4 flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full bg-[var(--ink4)]/10 flex items-center justify-center text-[var(--ink4)] font-bold border border-[var(--parch)]">
                               {friend?.profile?.name?.[0] || "?"}
                             </div>
@@ -2956,7 +2968,7 @@ export default function App() {
 
                         return (
                           <div 
-                            key={req.id}
+                            key={`friend-${req.id}`}
                             className="bg-[var(--cream)] border border-[var(--parch)] rounded-2xl p-4 shadow-[var(--sh-sm)] hover:border-[var(--amber)]/30 transition-all group"
                           >
                             <div className="flex items-center gap-3 mb-3">
@@ -2992,7 +3004,7 @@ export default function App() {
                               <div className="space-y-1.5">
                                 {todaysTasks.length > 0 ? (
                                   todaysTasks.slice(0, 3).map((task: any, idx: number) => (
-                                    <div key={task.id || `task-${idx}`} className="flex items-center gap-2">
+                                    <div key={task.id ? `task-${task.id}-${idx}` : `task-${idx}`} className="flex items-center gap-2">
                                       <div className={cn(
                                         "w-1.5 h-1.5 rounded-full",
                                         task.completed ? "bg-[var(--done)]" : "bg-[var(--parch)]"
@@ -3113,7 +3125,7 @@ export default function App() {
                     <div className="space-y-2">
                       {todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).length > 0 ? (
                         todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).map((todo, idx) => (
-                          <div key={todo.id || `todo-mini-${idx}`} className="flex items-center gap-2 text-xs text-[var(--ink2)]">
+                          <div key={todo.id ? `todo-mini-${todo.id}-${idx}` : `todo-mini-${idx}`} className="flex items-center gap-2 text-xs text-[var(--ink2)]">
                             {todo.completed ? (
                               <CheckCircle2 className="w-3 h-3 text-[var(--done)]" />
                             ) : (
@@ -3381,14 +3393,14 @@ export default function App() {
 
                       <div className="space-y-8 mb-6">
                         {(appState.data[drawerSubj as SubjectKey]?.groups || []).map((group, gIdx) => (
-                          <div key={group.id || `group-${gIdx}`} className="space-y-3">
+                          <div key={group.id ? `group-${group.id}-${gIdx}` : `group-${gIdx}`} className="space-y-3">
                             <h4 className="font-serif font-medium text-[var(--ink)] flex items-center gap-2">
                               <div className={cn("w-2 h-2 rounded-full", appState.data[drawerSubj as SubjectKey]?.bg)} />
                               {group.label}
                             </h4>
                             <div className="space-y-2">
                               {(group.columns || []).map((col, cIdx) => (
-                                <div key={col.id || `col-${cIdx}`} className="flex items-center gap-3 p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl group/col hover:border-[var(--amber)] transition-all">
+                                <div key={col.id ? `col-${col.id}-${cIdx}` : `col-${cIdx}`} className="flex items-center gap-3 p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl group/col hover:border-[var(--amber)] transition-all">
                                   <div className="flex-1">
                                     <input 
                                       className="bg-transparent font-medium text-sm outline-none w-full"
@@ -3621,7 +3633,7 @@ export default function App() {
                       <div className="flex gap-2">
                         <select id="new-ch-group" className="flex-1 p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl outline-none text-sm appearance-none">
                           {(appState.data[drawerSubj as SubjectKey]?.groups || []).map((g, idx) => (
-                            <option key={g.id || `opt-${idx}`} value={g.id}>{g.label}</option>
+                            <option key={g.id ? `opt-${g.id}-${idx}` : `opt-${idx}`} value={g.id}>{g.label}</option>
                           ))}
                         </select>
                         <button 
@@ -3657,7 +3669,7 @@ export default function App() {
                       <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink3)] mb-3 block">Groups</label>
                       <div className="space-y-2">
                         {(appState.data[drawerSubj as SubjectKey]?.groups || []).map((g, idx) => (
-                          <div key={g.id || `glist-${idx}`} className="flex items-center gap-3 p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl">
+                          <div key={g.id ? `glist-${g.id}-${idx}` : `glist-${idx}`} className="flex items-center gap-3 p-3 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl">
                             <span className="flex-1 text-sm font-medium">{g.label}</span>
                             <span className="text-[9px] font-mono text-[var(--ink4)]">{(g.chapters || []).length} ch</span>
                             <button 
@@ -3928,7 +3940,7 @@ export default function App() {
                         setIsSearching(true);
                         setSearchResult(null);
                         try {
-                          const q = query(collection(db, "users"), where("friendCode", "==", friendIdInput.trim()));
+                          const q = query(collection(db, "userPublic"), where("profile.friendCode", "==", friendIdInput.trim()));
                           const querySnapshot = await getDocs(q);
                           if (querySnapshot.empty) {
                             setAlertDialog({ isOpen: true, title: "Not Found", message: "No user found with this code." });
@@ -3936,9 +3948,9 @@ export default function App() {
                             const foundUser = querySnapshot.docs[0];
                             setSearchResult({ uid: foundUser.id, ...foundUser.data() });
                           }
-                        } catch (error) {
+                        } catch (error: any) {
                           console.error(error);
-                          setAlertDialog({ isOpen: true, title: "Error", message: "Failed to search for friend." });
+                          setAlertDialog({ isOpen: true, title: "Error", message: `Failed to search for friend: ${error.message || "Unknown error"}` });
                         } finally {
                           setIsSearching(false);
                         }
@@ -4051,7 +4063,7 @@ export default function App() {
                 <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   {selectedChapter.ch.notes && selectedChapter.ch.notes.length > 0 ? (
                     selectedChapter.ch.notes.map((note, idx) => (
-                      <div key={`${selectedChapter.subj}-${selectedChapter.ch.id}-note-${idx}`} className="p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl relative group/note">
+                      <div key={note.id ? `${selectedChapter.subj}-${selectedChapter.ch.id}-note-${note.id}-${idx}` : `${selectedChapter.subj}-${selectedChapter.ch.id}-note-${idx}`} className="p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl relative group/note">
                         {editingNoteId === note.id ? (
                           <div className="relative">
                             <textarea

@@ -89,7 +89,7 @@ service cloud.firestore {
     match /friendRequests/{requestId} {
       allow read: if isAuthenticated() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.from;
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.to;
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
       allow delete: if isAuthenticated() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
     }
 
