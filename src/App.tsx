@@ -995,25 +995,36 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     
-    const q = query(
-      collection(db, "friendRequests"),
-      or(
-        where("to", "==", user.uid),
-        where("from", "==", user.uid)
-      )
-    );
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const reqs: FriendRequest[] = [];
-      snapshot.forEach((doc) => {
-        reqs.push({ id: doc.id, ...doc.data() } as FriendRequest);
-      });
-      setFriendRequests(reqs);
+    const qFrom = query(collection(db, "friendRequests"), where("from", "==", user.uid));
+    const qTo = query(collection(db, "friendRequests"), where("to", "==", user.uid));
+
+    let reqsFrom: FriendRequest[] = [];
+    let reqsTo: FriendRequest[] = [];
+
+    const updateReqs = () => {
+      const combined = [...reqsFrom, ...reqsTo];
+      const unique = Array.from(new Map(combined.map(r => [r.id, r])).values());
+      setFriendRequests(unique);
+    };
+
+    const unsubFrom = onSnapshot(qFrom, (snapshot) => {
+      reqsFrom = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FriendRequest));
+      updateReqs();
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, "friendRequests");
+      handleFirestoreError(error, OperationType.GET, "friendRequests/from");
     });
 
-    return () => unsubscribe();
+    const unsubTo = onSnapshot(qTo, (snapshot) => {
+      reqsTo = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FriendRequest));
+      updateReqs();
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, "friendRequests/to");
+    });
+
+    return () => {
+      unsubFrom();
+      unsubTo();
+    };
   }, [user]);
 
   // Fetch Friends Data
