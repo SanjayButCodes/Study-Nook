@@ -995,43 +995,28 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     
-    const qFrom = query(collection(db, "friendRequests"), where("from", "==", user.uid));
-    const qTo = query(collection(db, "friendRequests"), where("to", "==", user.uid));
-
-    let reqsFrom: FriendRequest[] = [];
-    let reqsTo: FriendRequest[] = [];
-
-    const updateReqs = () => {
-      const combined = [...reqsFrom, ...reqsTo];
-      const unique = Array.from(new Map(combined.map(r => [r.id, r])).values());
-      setFriendRequests(unique);
-    };
-
-    const unsubFrom = onSnapshot(qFrom, (snapshot) => {
-      reqsFrom = [];
-      snapshot.forEach((doc) => reqsFrom.push({ id: doc.id, ...doc.data() } as FriendRequest));
-      updateReqs();
+    const q = query(
+      collection(db, "friendRequests"),
+      or(
+        where("to", "==", user.uid),
+        where("from", "==", user.uid)
+      )
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const reqs: FriendRequest[] = [];
+      snapshot.forEach((doc) => {
+        reqs.push({ id: doc.id, ...doc.data() } as FriendRequest);
+      });
+      setFriendRequests(reqs);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, "friendRequests/from");
+      handleFirestoreError(error, OperationType.GET, "friendRequests");
     });
 
-    const unsubTo = onSnapshot(qTo, (snapshot) => {
-      reqsTo = [];
-      snapshot.forEach((doc) => reqsTo.push({ id: doc.id, ...doc.data() } as FriendRequest));
-      updateReqs();
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, "friendRequests/to");
-    });
-
-    return () => {
-      unsubFrom();
-      unsubTo();
-    };
+    return () => unsubscribe();
   }, [user]);
 
   // Fetch Friends Data
-  const prevRelevantUsersRef = useRef<string>("");
-
   useEffect(() => {
     if (!user) return;
     const relevantUsers = Array.from(new Set([
@@ -1040,9 +1025,7 @@ export default function App() {
       ...(friendRequests || []).filter(r => r.from === user.uid && r.status === "pending").map(r => r.to)
     ])).sort();
 
-    const relevantUsersStr = JSON.stringify(relevantUsers);
-    if (relevantUsersStr === prevRelevantUsersRef.current) return;
-    prevRelevantUsersRef.current = relevantUsersStr;
+    const relevantUsersStr = relevantUsers.join(',');
 
     // Cleanup friendsData for users who are no longer relevant
     setFriendsData(prev => {
@@ -1057,6 +1040,8 @@ export default function App() {
       return changed ? next : prev;
     });
     
+    if (relevantUsers.length === 0) return;
+
     const unsubscribes: (() => void)[] = [];
     
     relevantUsers.forEach(friendId => {
@@ -1073,7 +1058,7 @@ export default function App() {
     return () => {
       unsubscribes.forEach(unsub => unsub());
     };
-  }, [friendRequests, user]);
+  }, [user, JSON.stringify((friendRequests || []).map(r => r.id + r.status).sort())]);
 
   // Disable background scrolling when modals are open
   useEffect(() => {
@@ -2959,10 +2944,9 @@ export default function App() {
                       ).map((req: any) => {
                         const friendId = req.from === user?.uid ? req.to : req.from;
                         const friend = friendsData[friendId];
-                        if (!friend) return null;
                         
-                        const fProfile = friend.profile || {};
-                        const fTodoList = (friend.todoList || []) as Todo[];
+                        const fProfile = friend?.profile || {};
+                        const fTodoList = (friend?.todoList || []) as Todo[];
                         const today = new Date().toISOString().split('T')[0];
                         const todaysTasks = fTodoList.filter(t => t.date === today || (!t.completed && t.date < today));
 
