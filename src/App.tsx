@@ -801,17 +801,6 @@ export default function App() {
 
   // --- Effects ---
   useEffect(() => {
-    async function testConnection() {
-      try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
-      } catch (error) {
-        if(error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration. ");
-        }
-      }
-    }
-    testConnection();
-
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setIsAuthReady(true);
@@ -844,15 +833,16 @@ export default function App() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         
-        const localLastUpdated = parseInt(localStorage.getItem("jee_last_updated") || "0", 10);
+        const localLastUpdated = lastSavedTimeRef.current;
         const cloudLastUpdated = data.lastUpdated || 0;
 
-        // If local data is significantly newer (e.g., by more than 10 seconds), don't overwrite
-        if (localLastUpdated > cloudLastUpdated + 10000) {
-          console.warn("Local data is newer than cloud data. Skipping overwrite to prevent data loss.");
+        // If cloud data is not newer than our local data, ignore it to prevent sync loops
+        if (cloudLastUpdated <= localLastUpdated) {
           setIsDataLoaded(true);
           return;
         }
+
+        isStateFromCloudRef.current = true;
 
         // Update local state
         if (data.appState) setAppState(data.appState);
@@ -866,18 +856,6 @@ export default function App() {
         if (data.todoList) setTodoList(data.todoList);
         if (data.chatMessages) setChatMessages(data.chatMessages);
         
-        // Update comparison payload to prevent immediate re-save
-        const loadedPayload = {
-          appState: data.appState,
-          profile: data.profile,
-          todoList: data.todoList,
-          chatMessages: data.chatMessages,
-          displayName: data.displayName,
-          photoURL: data.photoURL,
-          email: data.email,
-          friendCode: data.friendCode,
-        };
-        setLastSavedPayload(JSON.stringify(loadedPayload));
         setLastSynced(Date.now());
       }
       setIsDataLoaded(true);
@@ -909,10 +887,17 @@ export default function App() {
     localStorage.setItem("jee_todo_v1", JSON.stringify(todoList));
   }, [todoList]);
 
-  const [lastSavedPayload, setLastSavedPayload] = useState<string>("");
+  const lastSavedTimeRef = useRef<number>(0);
+  const isStateFromCloudRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!isDataLoaded || !user) return;
+    
+    if (isStateFromCloudRef.current) {
+      isStateFromCloudRef.current = false;
+      return;
+    }
+
     const saveToFirebase = async () => {
       if (quotaExceeded || !isDataLoaded || !user || !isOnline) return;
       
@@ -920,18 +905,14 @@ export default function App() {
         appState,
         profile,
         todoList,
-        chatMessages,
         displayName: user.displayName,
         photoURL: user.photoURL,
         email: user.email,
         friendCode: profile.friendCode,
       };
       
-      const payloadStr = JSON.stringify(payloadObjForCompare);
-      if (payloadStr === lastSavedPayload) return;
-
       const now = Date.now();
-      localStorage.setItem("jee_last_updated", now.toString());
+      lastSavedTimeRef.current = now;
 
       setIsSyncing(true);
       try {
@@ -941,7 +922,15 @@ export default function App() {
           updatedAt: Timestamp.now()
         };
         await setDoc(doc(db, "users", user.uid), payload, { merge: true });
-        setLastSavedPayload(payloadStr);
+        
+        // Write public summary for friends
+        const publicPayload = {
+          profile: { name: profile.name, friendCode: profile.friendCode },
+          todoList: todoList,
+          lastUpdated: now
+        };
+        await setDoc(doc(db, "userPublic", user.uid), publicPayload, { merge: true });
+
         setLastSynced(Date.now());
         setQuotaExceeded(false); // Reset if successful
       } catch (error: any) {
@@ -954,10 +943,10 @@ export default function App() {
       }
     };
     
-    // Increased debounce to 5 seconds to reduce sync frequency
-    const timeout = setTimeout(saveToFirebase, 5000);
+    // Increased debounce to 30 seconds to significantly reduce sync frequency
+    const timeout = setTimeout(saveToFirebase, 30000);
     return () => clearTimeout(timeout);
-  }, [appState, profile, todoList, chatMessages, isDataLoaded, user, lastSavedPayload, quotaExceeded, isOnline]);
+  }, [appState, profile, todoList, isDataLoaded, user, quotaExceeded, isOnline]);
 
 
 
@@ -970,13 +959,12 @@ export default function App() {
     setIsSyncing(true);
     try {
       const now = Date.now();
-      localStorage.setItem("jee_last_updated", now.toString());
+      lastSavedTimeRef.current = now;
       
       const payloadObj = {
         appState,
         profile,
         todoList,
-        chatMessages,
         displayName: user.displayName,
         photoURL: user.photoURL,
         email: user.email,
@@ -984,7 +972,14 @@ export default function App() {
       };
       const payload = { ...payloadObj, lastUpdated: now, updatedAt: Timestamp.now() };
       await setDoc(doc(db, "users", user.uid), payload, { merge: true });
-      setLastSavedPayload(JSON.stringify(payloadObj));
+      
+      const publicPayload = {
+        profile: { name: profile.name, friendCode: profile.friendCode },
+        todoList: todoList,
+        lastUpdated: now
+      };
+      await setDoc(doc(db, "userPublic", user.uid), publicPayload, { merge: true });
+
       setLastSynced(Date.now());
       setQuotaExceeded(false);
       setAlertDialog({ isOpen: true, title: "Synced!", message: "Your progress has been manually saved to the cloud." });
@@ -1023,13 +1018,19 @@ export default function App() {
   }, [user]);
 
   // Fetch Friends Data
+  const prevRelevantUsersRef = useRef<string>("");
+
   useEffect(() => {
     if (!user) return;
     const relevantUsers = Array.from(new Set([
       ...(friendRequests || []).filter(r => r.status === "accepted").map(r => r.from === user.uid ? r.to : r.from),
       ...(friendRequests || []).filter(r => r.to === user.uid && r.status === "pending").map(r => r.from),
       ...(friendRequests || []).filter(r => r.from === user.uid && r.status === "pending").map(r => r.to)
-    ]));
+    ])).sort();
+
+    const relevantUsersStr = JSON.stringify(relevantUsers);
+    if (relevantUsersStr === prevRelevantUsersRef.current) return;
+    prevRelevantUsersRef.current = relevantUsersStr;
 
     // Cleanup friendsData for users who are no longer relevant
     setFriendsData(prev => {
@@ -1047,12 +1048,12 @@ export default function App() {
     const unsubscribes: (() => void)[] = [];
     
     relevantUsers.forEach(friendId => {
-      const unsub = onSnapshot(doc(db, "users", friendId), (docSnap) => {
+      const unsub = onSnapshot(doc(db, "userPublic", friendId), (docSnap) => {
         if (docSnap.exists()) {
           setFriendsData(prev => ({ ...prev, [friendId]: docSnap.data() }));
         }
       }, (error) => {
-        handleFirestoreError(error, OperationType.GET, `users/${friendId}`);
+        handleFirestoreError(error, OperationType.GET, `userPublic/${friendId}`);
       });
       unsubscribes.push(unsub);
     });

@@ -26,6 +26,29 @@
       },
       "required": ["profile", "appState", "todoList", "chatMessages"]
     },
+    "UserPublic": {
+      "title": "UserPublic",
+      "description": "Public summary of a user's data for friends",
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "friendCode": { "type": "string" }
+          },
+          "required": ["name", "friendCode"]
+        },
+        "todoList": {
+          "type": "array",
+          "items": {
+            "$ref": "#/entities/TodoItem"
+          }
+        },
+        "lastUpdated": { "type": "number" }
+      },
+      "required": ["profile", "todoList", "lastUpdated"]
+    },
     "Profile": {
       "title": "Profile",
       "description": "User profile data",
@@ -181,6 +204,10 @@
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/User" },
       "description": "Stores all user data including profile, app state, todo list, and chat messages."
+    },
+    "/userPublic/{userId}": {
+      "schema": { "$ref": "#/entities/UserPublic" },
+      "description": "Stores public summary of user data for friends."
     }
   }
 }
