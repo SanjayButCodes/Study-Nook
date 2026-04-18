@@ -58,6 +58,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { toPng } from "html-to-image";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
@@ -116,7 +117,7 @@ function TypingText({ text, onComplete }: { text: string, onComplete?: () => voi
 
   return (
     <ReactMarkdown 
-      remarkPlugins={[remarkMath]} 
+      remarkPlugins={[remarkMath, remarkGfm]} 
       rehypePlugins={[rehypeKatex]}
     >
       {displayedText}
@@ -1399,7 +1400,7 @@ export default function App() {
             };
           });
         } else if (call.name === "addChapterNote") {
-          const { subject, chapterName, note } = call.args as any;
+          const { subject, chapterName, note, attachCurrentContextImage } = call.args as any;
           setAppState(prev => {
             if (subject === "all" || !prev.data[subject as SubjectKey]) return prev;
             return {
@@ -1420,9 +1421,10 @@ export default function App() {
                             formattedNote = `$$${formattedNote}$$`;
                           }
                         }
+                        const noteImage = attachCurrentContextImage && imageBase64 ? `data:${imageMimeType || 'image/png'};base64,${imageBase64}` : undefined;
                         return {
                           ...ch,
-                          notes: [...(ch.notes || []), { id: uid(), text: formattedNote }]
+                          notes: [...(ch.notes || []), { id: uid(), text: formattedNote, image: noteImage }]
                         };
                       }
                       return ch;
@@ -1763,7 +1765,7 @@ export default function App() {
                         <Quote className="absolute -top-3 -left-3 w-8 h-8 text-[var(--amber)] opacity-20" />
                         <div className="text-sm md:text-base italic text-[var(--ink2)] leading-relaxed prose prose-sm prose-stone dark:prose-invert max-w-none">
                           <ReactMarkdown 
-                            remarkPlugins={[remarkMath]} 
+                            remarkPlugins={[remarkMath, remarkGfm]} 
                             rehypePlugins={[rehypeKatex]}
                           >
                             {motivation}
@@ -2147,7 +2149,7 @@ export default function App() {
                         <h4 className="font-serif text-sm font-medium mb-2 group-hover:text-[var(--amber)] transition-colors">{ch.name}</h4>
                         <div className="text-xs text-[var(--ink3)] italic line-clamp-2 leading-relaxed prose prose-sm prose-stone dark:prose-invert max-w-none">
                           <ReactMarkdown 
-                            remarkPlugins={[remarkMath]} 
+                            remarkPlugins={[remarkMath, remarkGfm]} 
                             rehypePlugins={[rehypeKatex]}
                           >
                             {ch.notes[ch.notes.length - 1].text}
@@ -2519,7 +2521,7 @@ export default function App() {
                             }} />
                           ) : (
                             <ReactMarkdown 
-                              remarkPlugins={[remarkMath]} 
+                              remarkPlugins={[remarkMath, remarkGfm]} 
                               rehypePlugins={[rehypeKatex]}
                             >
                               {msg.text}
@@ -3966,10 +3968,10 @@ export default function App() {
                   >
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="w-12 h-12 rounded-full bg-[var(--amber-lt)] flex items-center justify-center text-[var(--amber)] font-bold text-xl border border-[var(--parch)] shrink-0">
-                        {searchResult.displayName?.[0] || "?"}
+                        {searchResult?.profile?.name?.[0] || "?"}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-medium text-[var(--ink)] truncate">{searchResult.displayName || "Anonymous"}</p>
+                        <p className="font-medium text-[var(--ink)] truncate">{searchResult?.profile?.name || "Anonymous"}</p>
                         <p className="text-[10px] font-mono text-[var(--ink4)] uppercase tracking-widest">Found User</p>
                       </div>
                     </div>
@@ -3995,8 +3997,9 @@ export default function App() {
                           setFriendIdInput("");
                           setIsAddFriendOpen(false);
                           setAlertDialog({ isOpen: true, title: "Success!", message: "Friend request sent!" });
-                        } catch (error) {
-                          setAlertDialog({ isOpen: true, title: "Error", message: "Failed to send request." });
+                        } catch (error: any) {
+                          console.error("friend request error", error);
+                          setAlertDialog({ isOpen: true, title: "Error", message: `Failed to send request: ${error.message}` });
                         }
                       }}
                       className="bg-[var(--amber)] text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--amber-dk)] transition-all shadow-[var(--sh-sm)]"
@@ -4129,11 +4132,14 @@ export default function App() {
                           <>
                             <div className="prose prose-sm prose-slate dark:prose-invert max-w-none text-sm leading-relaxed text-[var(--ink)] whitespace-pre-wrap">
                               <ReactMarkdown 
-                                remarkPlugins={[remarkMath]} 
+                                remarkPlugins={[remarkMath, remarkGfm]} 
                                 rehypePlugins={[rehypeKatex]}
                               >
                                 {note.text}
                               </ReactMarkdown>
+                              {note.image && (
+                                <img src={note.image} alt="Note attached image" className="mt-4 rounded-xl max-h-64 object-contain border border-[var(--parch)]" />
+                              )}
                             </div>
                             <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity">
                               <button 

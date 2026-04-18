@@ -17,13 +17,14 @@ const updateChapterStatus: FunctionDeclaration = {
 
 const addChapterNote: FunctionDeclaration = {
   name: "addChapterNote",
-  description: "Add or append a note to a specific chapter (e.g., a formula to remember).",
+  description: "Add or append a note to a specific chapter. Can include text (Markdown/LaTeX/Tables supported).",
   parameters: {
     type: Type.OBJECT,
     properties: {
       subject: { type: Type.STRING, enum: ["physics", "chemistry", "mathematics"], description: "The subject key." },
       chapterName: { type: Type.STRING, description: "The exact name of the chapter." },
-      note: { type: Type.STRING, description: "The note text to add." }
+      note: { type: Type.STRING, description: "The note text to add. Use markdown for tables and formatting." },
+      attachCurrentContextImage: { type: Type.BOOLEAN, description: "Set to true if the user wants to save the image they just uploaded into this note." }
     },
     required: ["subject", "chapterName", "note"]
   }
@@ -132,7 +133,8 @@ export async function callGemini(prompt: string, imageBase64?: string, imageMime
   const systemInstruction = `You are an expert IIT JEE tutor named Nova, trained by Sanjay. Be concise, accurate, and highly encouraging. 
 The student you are tutoring is named ${userName || "the student"}. Address them by name when appropriate.
 Today's date is ${new Date().toISOString().split('T')[0]}.
-Use markdown for formatting. Use LaTeX for all mathematical formulas (e.g., $E=mc^2$ or $$E=mc^2$$).
+Use markdown for formatting. You can draw tables using Markdown. Use LaTeX for all mathematical formulas (e.g., $E=mc^2$ or $$E=mc^2$$). 
+If the user asks to "make a table as a note", format the note content as a clear Markdown table and use addChapterNote. If they ask to "keep image as note", set attachCurrentContextImage to true when calling addChapterNote.
 You have access to the user's study tracker state. You can update chapter statuses, add notes, add major exams, add upcoming tests, add chapters, manage a to-do list, and update settings.
 When adding tasks to the to-do list, ALWAYS use today's date unless the user explicitly specifies another date.
 Current Tracker Context: ${JSON.stringify(context || "No context provided")}`;

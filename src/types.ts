@@ -1,6 +1,7 @@
 export interface ChapterNote {
   id: string;
   text: string;
+  image?: string;
 }
 
 export interface Chapter {
