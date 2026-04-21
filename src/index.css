@@ -108,6 +108,46 @@
     background: var(--amber);
     opacity: 0.5;
   }
+  /* Typography plugin overrides */
+  .prose {
+    --tw-prose-body: var(--ink);
+    --tw-prose-headings: var(--ink);
+    --tw-prose-lead: var(--ink3);
+    --tw-prose-links: var(--amber);
+    --tw-prose-bold: var(--ink);
+    --tw-prose-counters: var(--ink3);
+    --tw-prose-bullets: var(--ink3);
+    --tw-prose-hr: var(--parch);
+    --tw-prose-quotes: var(--ink);
+    --tw-prose-quote-borders: var(--amber);
+    --tw-prose-captions: var(--ink3);
+    --tw-prose-code: var(--ink);
+    --tw-prose-pre-code: var(--ink);
+    --tw-prose-pre-bg: var(--cream2);
+    --tw-prose-th-borders: var(--parch);
+    --tw-prose-td-borders: var(--parch);
+
+    --tw-prose-invert-body: var(--ink);
+    --tw-prose-invert-headings: var(--ink);
+    --tw-prose-invert-lead: var(--ink3);
+    --tw-prose-invert-links: var(--amber);
+    --tw-prose-invert-bold: var(--ink);
+    --tw-prose-invert-counters: var(--ink3);
+    --tw-prose-invert-bullets: var(--ink3);
+    --tw-prose-invert-hr: var(--parch);
+    --tw-prose-invert-quotes: var(--ink);
+    --tw-prose-invert-quote-borders: var(--amber);
+    --tw-prose-invert-captions: var(--ink3);
+    --tw-prose-invert-code: var(--ink);
+    --tw-prose-invert-pre-code: var(--ink);
+    --tw-prose-invert-pre-bg: var(--cream2);
+    --tw-prose-invert-th-borders: var(--parch);
+    --tw-prose-invert-td-borders: var(--parch);
+  }
+
+  .prose strong, .prose b, .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    color: var(--ink) !important;
+  }
 }
 
 @layer utilities {
@@ -129,5 +169,41 @@
     overflow-x: auto;
     overflow-y: hidden;
     padding-bottom: 0.5rem;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #notes-print-view, #notes-print-view * {
+    visibility: visible;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #notes-print-view {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white !important;
+  }
+  .print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .print-note {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  html, body {
+    height: auto;
+    background-color: white !important;
+    background-image: none !important;
+  }
+  @page {
+    margin: 1.5cm;
   }
 }

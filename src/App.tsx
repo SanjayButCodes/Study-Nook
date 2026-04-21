@@ -222,6 +222,63 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   console.error('Firestore Error: ', JSON.stringify(errInfo));
 }
 
+const NotesPrintView = ({ appState, profile }: { appState: AppState, profile: Profile }) => {
+  return (
+    <div id="notes-print-view" className="hidden print:block w-full bg-white text-black z-[999999] print-container relative">
+      <div className="max-w-4xl mx-auto py-10 px-8">
+        <div className="flex items-center gap-3 mb-6">
+          <Logo className="w-10 h-10 print-logo-override" iconClassName="w-6 h-6" />
+          <span className="font-serif text-3xl font-medium">Study <span className="text-black font-bold">Nook</span></span>
+        </div>
+        <h1 className="text-4xl font-serif font-bold border-b border-gray-300 pb-4 mb-4 mt-8">
+          {profile.name ? `${profile.name}'s Notes` : "Study Notes"}
+        </h1>
+        <p className="text-sm font-mono text-gray-500 mb-10">Exported on {new Date().toLocaleDateString()}</p>
+        <div className="min-h-[60vh]">
+          {SUBJ_KEYS.map(subj => {
+          const groups = appState.data[subj]?.groups || [];
+          const groupsWithNotes = groups.filter(g => (g.chapters || []).some(ch => ch.notes && ch.notes.length > 0));
+          if (groupsWithNotes.length === 0) return null;
+          return (
+            <div key={subj} className="mb-12 print-avoid-break">
+              <h2 className="text-2xl font-mono uppercase tracking-widest text-[#3d7abf] mb-6 border-b border-gray-200 pb-2">{SUBJ_LABELS[subj]}</h2>
+              {groupsWithNotes.map(g => (
+                <div key={g.id} className="mb-8">
+                  <h3 className="text-xl font-bold bg-gray-50 p-2 rounded mb-4">{g.name}</h3>
+                  {g.chapters.filter(ch => ch.notes && ch.notes.length > 0).map(ch => (
+                    <div key={ch.id} className="mb-6 pl-4 border-l-2 border-amber-200 print-avoid-break">
+                      <h4 className="text-lg font-bold mb-3">{ch.name}</h4>
+                      <div className="space-y-4">
+                        {ch.notes!.map((note, idx) => (
+                          <div key={note.id || idx} className="prose prose-sm max-w-none print-note pt-2">
+                            <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex]}>
+                              {note.text}
+                            </ReactMarkdown>
+                            {note.image && (
+                              <img src={note.image} alt="Note asset" className="mt-4 rounded-xl max-h-64 object-contain border border-gray-200" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+        </div>
+        <div className="pt-20 mt-16 border-t border-gray-200 pb-10 text-center print-avoid-break flex flex-col items-center justify-center">
+          <p className="font-serif text-2xl text-gray-400 italic leading-snug w-full max-w-4xl mx-auto">
+            "Phadlo chaiye kahi se, syllabus track karo Study Nook se"
+          </p>
+          <p className="text-xs font-mono text-gray-400 mt-6">Made with love - Sanjay &lt;3</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   // --- Auth & Firebase State ---
   const [user, setUser] = useState<User | null>(null);
@@ -1584,7 +1641,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]">
+      <div id="main-app-content" className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]">
       {/* Header */}
       <header className="sticky top-0 z-[100] glass h-16 flex items-center px-6 md:px-8 pt-[env(safe-area-inset-top)] box-content">
         <div className="max-w-[1320px] w-full mx-auto flex items-center gap-4">
@@ -2118,13 +2175,15 @@ export default function App() {
               {/* Recent Notes Feature */}
               <div className="mt-4">
                 <div className="bg-[var(--cream)] border border-[var(--parch)] rounded-2xl p-6 shadow-[var(--sh-sm)]">
-                  <div className="flex items-center gap-2 mb-6">
-                    <div className="p-2 bg-[var(--amber-lt)] rounded-lg">
-                      <FileText className="w-5 h-5 text-[var(--amber)]" />
-                    </div>
-                    <div>
-                      <h3 className="font-serif text-xl font-medium">Study Notes</h3>
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink3)]">Quick access to your chapter notes</p>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-[var(--amber-lt)] rounded-lg">
+                        <FileText className="w-5 h-5 text-[var(--amber)]" />
+                      </div>
+                      <div>
+                        <h3 className="font-serif text-xl font-medium">Study Notes</h3>
+                        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink3)]">Quick access to your chapter notes</p>
+                      </div>
                     </div>
                   </div>
 
@@ -3783,6 +3842,15 @@ export default function App() {
                           />
                         </label>
                       </div>
+                      <div className="mt-3">
+                        <button 
+                          onClick={() => window.print()}
+                          className="w-full flex items-center justify-center gap-2 p-3 bg-[var(--ink)] text-white hover:bg-black rounded-xl font-medium transition-colors text-sm shadow-sm"
+                        >
+                          <FileText className="w-4 h-4" />
+                          Export Notes (PDF)
+                        </button>
+                      </div>
                     </section>
 
                     {/* Data Management */}
@@ -4274,6 +4342,7 @@ export default function App() {
         )}
       </AnimatePresence>
       </div>
+      <NotesPrintView appState={appState} profile={profile} />
     </ErrorBoundary>
   );
 }
