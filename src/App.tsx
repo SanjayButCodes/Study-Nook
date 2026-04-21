@@ -1820,7 +1820,7 @@ export default function App() {
                     <div className="max-w-2xl">
                       <div className="p-6 bg-[var(--cream2)] rounded-2xl border-l-4 border-[var(--amber)] relative">
                         <Quote className="absolute -top-3 -left-3 w-8 h-8 text-[var(--amber)] opacity-20" />
-                        <div className="text-sm md:text-base italic text-[var(--ink2)] leading-relaxed prose prose-sm prose-stone dark:prose-invert max-w-none">
+                        <div className="text-sm md:text-base italic text-[var(--ink2)] leading-relaxed prose prose-sm dark:prose-invert max-w-none">
                           <ReactMarkdown 
                             remarkPlugins={[remarkMath, remarkGfm]} 
                             rehypePlugins={[rehypeKatex]}
@@ -2200,13 +2200,14 @@ export default function App() {
                           setSelectedChapter({ subj, ch });
                           setIsNoteModalOpen(true);
                         }}
-                        className="p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl hover:border-[var(--amber)] transition-all cursor-pointer group"
+                        className="p-5 bg-gradient-to-b from-[var(--cream)] to-[var(--cream2)] border border-[var(--parch)] rounded-2xl hover:border-[var(--amber)] hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
                       >
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink4)]">{SUBJ_LABELS[subj]}</span>
+                        <div className="absolute top-0 left-0 w-1 h-full bg-[var(--amber)] opacity-50 group-hover:opacity-100 transition-opacity" />
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink4)] bg-[var(--parch)]/30 px-2 py-0.5 rounded-full">{SUBJ_LABELS[subj]}</span>
                         </div>
-                        <h4 className="font-serif text-sm font-medium mb-2 group-hover:text-[var(--amber)] transition-colors">{ch.name}</h4>
-                        <div className="text-xs text-[var(--ink3)] italic line-clamp-2 leading-relaxed prose prose-sm prose-stone dark:prose-invert max-w-none">
+                        <h4 className="font-serif text-base font-medium mb-2 group-hover:text-[var(--amber)] transition-colors">{ch.name}</h4>
+                        <div className="text-xs text-[var(--ink3)] line-clamp-3 leading-relaxed prose prose-sm dark:prose-invert max-w-none">
                           <ReactMarkdown 
                             remarkPlugins={[remarkMath, remarkGfm]} 
                             rehypePlugins={[rehypeKatex]}
@@ -2569,10 +2570,10 @@ export default function App() {
                           </button>
                         )}
                         <div className={cn(
-                          "prose prose-sm max-w-none", 
+                          "prose prose-sm xl:prose-base dark:prose-invert max-w-none leading-relaxed whitespace-pre-wrap font-sans",
                           msg.role === "user" 
-                            ? "prose-invert" 
-                            : "text-[var(--ink)] prose-p:text-[var(--ink)] prose-headings:text-[var(--ink)] prose-strong:text-[var(--ink)] prose-a:text-[var(--amber)] prose-code:text-[var(--ink)] prose-li:text-[var(--ink)] dark:text-[var(--ink)] dark:prose-p:text-[var(--ink)] dark:prose-headings:text-[var(--ink)] dark:prose-strong:text-[var(--ink)] dark:prose-invert"
+                            ? "prose-invert text-white prose-p:text-white prose-headings:text-white prose-strong:text-white" 
+                            : "text-[var(--ink)]"
                         )}>
                           {msg.isTyping ? (
                             <TypingText text={msg.text} onComplete={() => {
@@ -4125,11 +4126,11 @@ export default function App() {
                 </button>
               </div>
               
-              <div className="space-y-6">
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-0">
+                <div className="space-y-0 max-h-[60vh] overflow-y-auto custom-scrollbar border border-[var(--parch)] rounded-2xl bg-[var(--cream)] shadow-inner">
                   {selectedChapter.ch.notes && selectedChapter.ch.notes.length > 0 ? (
                     selectedChapter.ch.notes.map((note, idx) => (
-                      <div key={note.id ? `${selectedChapter.subj}-${selectedChapter.ch.id}-note-${note.id}-${idx}` : `${selectedChapter.subj}-${selectedChapter.ch.id}-note-${idx}`} className="p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl relative group/note">
+                      <div key={note.id ? `${selectedChapter.subj}-${selectedChapter.ch.id}-note-${note.id}-${idx}` : `${selectedChapter.subj}-${selectedChapter.ch.id}-note-${idx}`} className="p-6 bg-[var(--cream)] border-b last:border-b-0 border-[var(--parch)] relative group/note transition-all hover:bg-[var(--cream2)]/30">
                         {editingNoteId === note.id ? (
                           <div className="relative">
                             <textarea
@@ -4198,7 +4199,7 @@ export default function App() {
                           </div>
                         ) : (
                           <>
-                            <div className="prose prose-sm prose-slate dark:prose-invert max-w-none text-sm leading-relaxed text-[var(--ink)] whitespace-pre-wrap">
+                            <div className="prose prose-sm xl:prose-base dark:prose-invert max-w-none leading-loose text-[var(--ink)] whitespace-pre-wrap font-sans">
                               <ReactMarkdown 
                                 remarkPlugins={[remarkMath, remarkGfm]} 
                                 rehypePlugins={[rehypeKatex]}
@@ -4206,7 +4207,9 @@ export default function App() {
                                 {note.text}
                               </ReactMarkdown>
                               {note.image && (
-                                <img src={note.image} alt="Note attached image" className="mt-4 rounded-xl max-h-64 object-contain border border-[var(--parch)]" />
+                                <div className="mt-6 mb-2 rounded-2xl overflow-hidden border border-[var(--parch)] shadow-sm bg-black/5">
+                                  <img src={note.image} alt="Note asset" className="w-full object-contain max-h-[500px]" />
+                                </div>
                               )}
                             </div>
                             <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity">
