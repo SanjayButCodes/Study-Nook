@@ -611,6 +611,8 @@ export default function App() {
   const [editingTodoText, setEditingTodoText] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteText, setEditingNoteText] = useState("");
+  const [editingNoteImage, setEditingNoteImage] = useState<string | null>(null);
+  const [newNoteImage, setNewNoteImage] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
 
   const updateGroupLabel = (subj: SubjectKey, groupId: string, newLabel: string) => {
@@ -2111,7 +2113,7 @@ export default function App() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--ink3)]" />
           <input
             type="text"
-            placeholder="Search chapters across all subjects..."
+            placeholder="Search subjects, chapters, or notes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl pl-12 pr-4 py-3 outline-none focus:border-[var(--amber)] transition-all"
@@ -2123,23 +2125,35 @@ export default function App() {
             <h3 className="font-serif text-xl font-medium mb-4">Search Results</h3>
             {SUBJ_KEYS.flatMap(subj => 
               (appState.data[subj]?.groups || []).flatMap(g => 
-                (g.chapters || []).filter(ch => ch.name.toLowerCase().includes(searchQuery.toLowerCase()) || ch.notes?.some(n => n.text.toLowerCase().includes(searchQuery.toLowerCase()))).map(ch => ({ subj, g, ch }))
+                (g.chapters || []).filter(ch => 
+                  SUBJ_LABELS[subj].toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  g.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  ch.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  ch.notes?.some(n => n.text.toLowerCase().includes(searchQuery.toLowerCase()))
+                ).map(ch => ({ subj, g, ch }))
               )
-            ).map(({ subj, g, ch }, idx) => (
+            ).map(({ subj, g, ch }, idx) => {
+              const matchedNote = ch.notes?.find(n => n.text.toLowerCase().includes(searchQuery.toLowerCase()));
+              return (
               <div key={`${subj}-${ch.id}-search-${idx}`} className="p-4 bg-[var(--cream)] border border-[var(--parch)] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
+                <div className="flex-1 cursor-pointer" onClick={() => { setSelectedChapter({ subj, ch }); setIsNoteModalOpen(true); }}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink4)]">{SUBJ_LABELS[subj]}</span>
                     <span className="text-[10px] text-[var(--ink4)]">•</span>
                     <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink4)]">{g.label}</span>
                   </div>
-                  <h4 className="font-medium text-[var(--ink)]">{ch.name}</h4>
+                  <h4 className="font-medium text-[var(--amber)] hover:underline">{ch.name}</h4>
+                  {matchedNote && (
+                    <div className="mt-2 p-3 bg-[var(--cream2)] rounded-lg text-xs text-[var(--ink3)] italic line-clamp-2 pr-4 border border-[var(--parch)] pointer-events-none">
+                      "{matchedNote.text}"
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   {(g.columns || []).map((col, cIdx) => (
                     <button 
                       key={`${subj}-${ch.id}-${col.id}-search-${idx}-${cIdx}`}
-                      onClick={() => toggleChapterCheck(subj, ch.id, col.id)}
+                      onClick={(e) => { e.stopPropagation(); toggleChapterCheck(subj, ch.id, col.id); }}
                       className={cn(
                         "w-8 h-8 rounded-md border-2 transition-all flex items-center justify-center",
                         ch.checks[col.id] ? "bg-[var(--done-lt)] border-[var(--done)] text-[var(--done)]" : "border-[var(--parch)] hover:border-[var(--amber)]"
@@ -2151,14 +2165,19 @@ export default function App() {
                   ))}
                 </div>
               </div>
-            ))}
+            )})}
             {SUBJ_KEYS.flatMap(subj => 
               (appState.data[subj]?.groups || []).flatMap(g => 
-                (g.chapters || []).filter(ch => ch.name.toLowerCase().includes(searchQuery.toLowerCase()) || ch.notes?.some(n => n.text.toLowerCase().includes(searchQuery.toLowerCase())))
+                (g.chapters || []).filter(ch => 
+                  SUBJ_LABELS[subj].toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  g.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  ch.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  ch.notes?.some(n => n.text.toLowerCase().includes(searchQuery.toLowerCase()))
+                )
               )
             ).length === 0 && (
               <div className="py-10 text-center border-2 border-dashed border-[var(--parch)] rounded-2xl">
-                <p className="text-sm text-[var(--ink3)] italic">No chapters found matching "{searchQuery}"</p>
+                <p className="text-sm text-[var(--ink3)] italic">No chapters or notes found matching "{searchQuery}"</p>
               </div>
             )}
           </div>
@@ -2836,7 +2855,7 @@ export default function App() {
                     </select>
                     <input name="time" type="time" required className="bg-[var(--cream)] border border-[var(--parch)] rounded-xl px-4 py-2 text-sm outline-none focus:border-[var(--amber)] text-[var(--ink)]" />
                   </div>
-                  <button type="submit" className="w-full py-3 bg-[var(--ink)] text-white rounded-xl text-sm font-medium hover:bg-black transition-all flex items-center justify-center gap-2">
+                  <button type="submit" className="w-full py-3 bg-[var(--ink)] text-[var(--cream)] rounded-xl text-sm font-medium hover:opacity-90 hover:bg-[var(--ink2)] transition-all flex items-center justify-center gap-2">
                     <Plus className="w-4 h-4" />
                     Add Reminder
                   </button>
@@ -2902,7 +2921,7 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => setIsAddFriendOpen(true)}
-                    className="p-2 bg-[var(--ink)] text-white rounded-xl hover:bg-black transition-all shadow-sm"
+                    className="p-2 bg-[var(--ink)] text-[var(--cream)] rounded-xl hover:bg-[var(--ink2)] hover:opacity-90 transition-all shadow-sm"
                     title="Add Friend"
                   >
                     <Plus className="w-5 h-5" />
@@ -3368,7 +3387,7 @@ export default function App() {
                           onClick={requestNotificationPermission}
                           className={cn(
                             "px-4 py-2 rounded-xl text-xs font-bold transition-all",
-                            notificationsEnabled ? "bg-green-500 text-white" : "bg-[var(--ink)] text-white"
+                            notificationsEnabled ? "bg-green-500 text-white" : "bg-[var(--ink)] text-[var(--cream)] hover:bg-[var(--ink2)]"
                           )}
                         >
                           {notificationsEnabled ? "Enabled" : "Enable"}
@@ -3394,7 +3413,7 @@ export default function App() {
                               dateEl.value = "";
                             }
                           }}
-                          className="w-full p-3 bg-[var(--ink)] text-white rounded-xl font-medium"
+                          className="w-full p-3 bg-[var(--ink)] text-[var(--cream)] hover:bg-[var(--ink2)] rounded-xl font-medium"
                         >
                           Add Exam
                         </button>
@@ -3419,7 +3438,7 @@ export default function App() {
                               dateEl.value = "";
                             }
                           }}
-                          className="w-full p-3 bg-[var(--ink)] text-white rounded-xl font-medium"
+                          className="w-full p-3 bg-[var(--ink)] text-[var(--cream)] hover:bg-[var(--ink2)] rounded-xl font-medium"
                         >
                           Add Test
                         </button>
@@ -3440,7 +3459,7 @@ export default function App() {
                             onClick={() => setDrawerSubj(subj)}
                             className={cn(
                               "px-4 py-2 rounded-xl text-xs font-medium transition-all border shadow-sm",
-                              drawerSubj === subj ? "bg-[var(--ink)] text-white border-[var(--ink)]" : "bg-[var(--cream2)] text-[var(--ink2)] border-[var(--parch)]"
+                              drawerSubj === subj ? "bg-[var(--ink)] text-[var(--cream)] border-[var(--ink)]" : "bg-[var(--cream2)] text-[var(--ink2)] border-[var(--parch)]"
                             )}
                           >
                             {SUBJ_LABELS[subj]}
@@ -3564,7 +3583,7 @@ export default function App() {
                                     nameEl.value = "";
                                   }
                                 }}
-                                className="px-4 py-3 bg-[var(--ink)] text-white rounded-xl text-sm font-medium"
+                                className="px-4 py-3 bg-[var(--ink)] text-[var(--cream)] hover:bg-[var(--ink2)] rounded-xl text-sm font-medium"
                               >
                                 Add
                               </button>
@@ -3587,7 +3606,7 @@ export default function App() {
                             onClick={() => setDrawerSubj(s)}
                             className={cn(
                               "px-4 py-2 rounded-xl text-xs font-medium transition-all border shadow-sm",
-                              drawerSubj === s ? "bg-[var(--ink)] text-white border-[var(--ink)]" : "bg-[var(--cream2)] text-[var(--ink2)] border-[var(--parch)]"
+                              drawerSubj === s ? "bg-[var(--ink)] text-[var(--cream)] border-[var(--ink)]" : "bg-[var(--cream2)] text-[var(--ink2)] border-[var(--parch)]"
                             )}
                           >
                             {SUBJ_LABELS[s]}
@@ -3715,7 +3734,7 @@ export default function App() {
                               nameEl.value = "";
                             }
                           }}
-                          className="px-6 bg-[var(--ink)] text-white rounded-xl text-sm"
+                          className="px-6 bg-[var(--ink)] text-[var(--cream)] hover:bg-[var(--ink2)] rounded-xl text-sm"
                         >
                           Add
                         </button>
@@ -3777,7 +3796,7 @@ export default function App() {
                               labelEl.value = "";
                             }
                           }}
-                          className="px-6 bg-[var(--ink)] text-white rounded-xl text-sm"
+                          className="px-6 bg-[var(--ink)] text-[var(--cream)] hover:bg-[var(--ink2)] rounded-xl text-sm"
                         >
                           Add
                         </button>
@@ -3846,7 +3865,7 @@ export default function App() {
                       <div className="mt-3">
                         <button 
                           onClick={() => window.print()}
-                          className="w-full flex items-center justify-center gap-2 p-3 bg-[var(--ink)] text-white hover:bg-black rounded-xl font-medium transition-colors text-sm shadow-sm"
+                          className="w-full flex items-center justify-center gap-2 p-3 bg-[var(--ink)] text-[var(--cream)] hover:bg-[var(--ink2)] rounded-xl font-medium transition-colors text-sm shadow-sm"
                         >
                           <FileText className="w-4 h-4" />
                           Export Notes (PDF)
@@ -4022,7 +4041,7 @@ export default function App() {
                         }
                       }}
                       disabled={isSearching || friendIdInput.length < 6}
-                      className="bg-[var(--ink)] text-white px-4 sm:px-6 rounded-2xl font-medium hover:bg-black transition-all disabled:opacity-50 flex items-center justify-center shadow-[var(--sh-md)] shrink-0"
+                      className="bg-[var(--ink)] text-[var(--cream)] px-4 sm:px-6 rounded-2xl font-medium hover:bg-[var(--ink2)] hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center shadow-[var(--sh-md)] shrink-0"
                     >
                       {isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
@@ -4136,14 +4155,38 @@ export default function App() {
                             <textarea
                               value={editingNoteText}
                               onChange={(e) => setEditingNoteText(e.target.value)}
-                              className="w-full p-3 bg-[var(--cream)] border border-[var(--amber)] rounded-xl min-h-[100px] outline-none text-sm resize-y font-sans leading-relaxed"
+                              className="w-full p-3 pb-12 bg-[var(--cream)] border border-[var(--amber)] rounded-xl min-h-[100px] outline-none text-sm resize-y font-sans leading-relaxed"
                               autoFocus
+                              onPaste={(e) => {
+                                const items = e.clipboardData?.items;
+                                if (!items) return;
+                                for (let i = 0; i < items.length; i++) {
+                                  if (items[i].type.indexOf('image/') === 0) {
+                                    const file = items[i].getAsFile();
+                                    if (file) {
+                                      e.preventDefault();
+                                      const reader = new FileReader();
+                                      reader.onload = (event) => setEditingNoteImage(event.target?.result as string);
+                                      reader.readAsDataURL(file);
+                                      break;
+                                    }
+                                  }
+                                }
+                              }}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                   e.preventDefault();
                                   const val = editingNoteText.trim();
-                                  if (val) {
-                                    const newNotes = selectedChapter.ch.notes!.map(n => n.id === note.id ? { ...n, text: val } : n);
+                                  if (val || editingNoteImage) {
+                                    const newNotes = selectedChapter.ch.notes!.map(n => {
+                                      if (n.id === note.id) {
+                                        const updated = { ...n, text: val };
+                                        if (editingNoteImage) updated.image = editingNoteImage;
+                                        else delete updated.image;
+                                        return updated;
+                                      }
+                                      return n;
+                                    });
                                     setSelectedChapter(prev => prev ? { ...prev, ch: { ...prev.ch, notes: newNotes } } : null);
                                     setAppState(prev => ({
                                       ...prev,
@@ -4159,21 +4202,58 @@ export default function App() {
                                       }
                                     }));
                                     setEditingNoteId(null);
+                                    setEditingNoteImage(null);
                                   }
                                 } else if (e.key === 'Escape') {
                                   setEditingNoteId(null);
                                 }
                               }}
                             />
+                            {editingNoteImage && (
+                              <div className="mt-2 relative inline-block">
+                                <img src={editingNoteImage} alt="Edit preview" className="max-h-32 rounded-lg border border-[var(--parch)]" />
+                                <button
+                                  onClick={() => setEditingNoteImage(null)}
+                                  className="absolute -top-2 -right-2 p-1 bg-white rounded-full shadow-sm text-red-500 hover:text-red-600"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
+                            <div className="absolute bottom-2 left-2 flex gap-1">
+                              <label className="p-1.5 bg-[var(--cream2)] text-[var(--ink4)] hover:text-[var(--ink2)] rounded-lg cursor-pointer" title="Add Image">
+                                <ImageIcon className="w-4 h-4" />
+                                <input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => setEditingNoteImage(event.target?.result as string);
+                                    reader.readAsDataURL(file);
+                                  }}
+                                />
+                              </label>
+                            </div>
                             <div className="absolute bottom-2 right-2 flex gap-1">
-                              <button onClick={() => setEditingNoteId(null)} className="p-1.5 bg-[var(--cream2)] text-[var(--ink4)] hover:text-[var(--ink2)] rounded-lg">
+                              <button onClick={() => { setEditingNoteId(null); setEditingNoteImage(null); }} className="p-1.5 bg-[var(--cream2)] text-[var(--ink4)] hover:text-[var(--ink2)] rounded-lg">
                                 <X className="w-3.5 h-3.5" />
                               </button>
                               <button 
                                 onClick={() => {
                                   const val = editingNoteText.trim();
-                                  if (val) {
-                                    const newNotes = selectedChapter.ch.notes!.map(n => n.id === note.id ? { ...n, text: val } : n);
+                                  if (val || editingNoteImage) {
+                                    const newNotes = selectedChapter.ch.notes!.map(n => {
+                                      if (n.id === note.id) {
+                                        const updated = { ...n, text: val };
+                                        if (editingNoteImage) updated.image = editingNoteImage;
+                                        else delete updated.image;
+                                        return updated;
+                                      }
+                                      return n;
+                                    });
                                     setSelectedChapter(prev => prev ? { ...prev, ch: { ...prev.ch, notes: newNotes } } : null);
                                     setAppState(prev => ({
                                       ...prev,
@@ -4217,6 +4297,7 @@ export default function App() {
                                 onClick={() => {
                                   setEditingNoteId(note.id || null);
                                   setEditingNoteText(note.text);
+                                  setEditingNoteImage(note.image || null);
                                 }}
                                 className="p-1.5 bg-[var(--cream)] border border-[var(--parch)] text-[var(--ink3)] rounded-lg hover:text-[var(--amber)]"
                                 title="Edit note"
@@ -4261,22 +4342,85 @@ export default function App() {
                 <div className="relative">
                   <textarea 
                     id="note-input"
-                    className="w-full p-4 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl min-h-[120px] outline-none focus:border-[var(--amber)] transition-all text-sm resize-y font-sans leading-relaxed pr-12"
+                    className="w-full p-4 pb-12 bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl min-h-[120px] outline-none focus:border-[var(--amber)] transition-all text-sm resize-y font-sans leading-relaxed pr-12"
                     placeholder="Add a new note... (Math supported: $E=mc^2$ or $$x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}$$)&#10;Shift+Enter for new line, Enter to save."
+                    onPaste={(e) => {
+                      const items = e.clipboardData?.items;
+                      if (!items) return;
+                      for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.indexOf('image/') === 0) {
+                          const file = items[i].getAsFile();
+                          if (file) {
+                            e.preventDefault();
+                            const reader = new FileReader();
+                            reader.onload = (event) => setNewNoteImage(event.target?.result as string);
+                            reader.readAsDataURL(file);
+                            break;
+                          }
+                        }
+                      }
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         const val = (e.target as HTMLTextAreaElement).value.trim();
-                        if (val) {
+                        if (val || newNoteImage) {
                           const newNoteId = uid();
-                          updateChapterNote(selectedChapter.subj, selectedChapter.ch.id, newNoteId, val);
-                          setSelectedChapter(prev => prev ? { ...prev, ch: { ...prev.ch, notes: [...(prev.ch.notes || []), { id: newNoteId, text: val }] } } : null);
+                          
+                          // First, update UI Optimistically
+                          let finalPayload: {id: string, text: string, image?: string} = { id: newNoteId, text: val };
+                          if (newNoteImage) finalPayload.image = newNoteImage;
+                          
+                          setSelectedChapter(prev => prev ? { ...prev, ch: { ...prev.ch, notes: [...(prev.ch.notes || []), finalPayload] } } : null);
+                          setAppState(prev => ({
+                            ...prev,
+                            data: {
+                              ...prev.data,
+                              [selectedChapter.subj]: {
+                                ...prev.data[selectedChapter.subj],
+                                groups: prev.data[selectedChapter.subj].groups.map(g => ({
+                                  ...g,
+                                  chapters: g.chapters.map(ch => ch.id === selectedChapter.ch.id ? { ...ch, notes: [...(ch.notes || []), finalPayload] } : ch)
+                                }))
+                              }
+                            }
+                          }));
+                          
                           (e.target as HTMLTextAreaElement).value = "";
+                          setNewNoteImage(null);
                         }
                       }
                     }}
                   />
-                  <div className="absolute bottom-3 right-3 text-[10px] text-[var(--ink4)] font-mono">
+                  {newNoteImage && (
+                    <div className="mt-2 relative inline-block">
+                      <img src={newNoteImage} alt="New note preview" className="max-h-32 rounded-lg border border-[var(--parch)]" />
+                      <button
+                        onClick={() => setNewNoteImage(null)}
+                        className="absolute -top-2 -right-2 p-1 bg-white rounded-full shadow-sm text-red-500 hover:text-red-600"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                  <div className="absolute bottom-3 left-3 flex gap-1">
+                    <label className="p-1.5 bg-[var(--cream)] text-[var(--ink4)] hover:text-[var(--ink2)] rounded-lg cursor-pointer transition-colors" title="Add Image">
+                      <ImageIcon className="w-4 h-4" />
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (event) => setNewNoteImage(event.target?.result as string);
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <div className="absolute bottom-4 right-4 text-[10px] text-[var(--ink4)] font-mono">
                     Enter to save
                   </div>
                 </div>
