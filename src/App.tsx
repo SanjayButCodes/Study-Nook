@@ -2217,7 +2217,7 @@ export default function App() {
                       return (
                         <div key={`notes-section-${subj}`} className="space-y-4">
                           <h4 className="text-xs font-mono uppercase tracking-widest text-[var(--ink4)] ml-1">{SUBJ_LABELS[subj]}</h4>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
                             {subjNotes.map((ch, idx) => (
                               <motion.div 
                                 key={`${subj}-${ch.id}-recent-${idx}`}
@@ -2229,14 +2229,23 @@ export default function App() {
                                 className="p-5 bg-gradient-to-b from-[var(--cream)] to-[var(--cream2)] border border-[var(--parch)] rounded-2xl hover:border-[var(--amber)] hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
                               >
                                 <div className="absolute top-0 left-0 w-1 h-full bg-[var(--amber)] opacity-50 group-hover:opacity-100 transition-opacity" />
-                                <h4 className="font-serif text-base font-medium mb-2 group-hover:text-[var(--amber)] transition-colors">{ch.name}</h4>
-                                <div className="text-xs text-[var(--ink3)] line-clamp-3 leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-                                  <ReactMarkdown 
-                                    remarkPlugins={[remarkMath, remarkGfm]} 
-                                    rehypePlugins={[rehypeKatex]}
-                                  >
-                                    {ch.notes![ch.notes!.length - 1].text}
-                                  </ReactMarkdown>
+                                <h4 className="font-serif text-base font-medium mb-3 group-hover:text-[var(--amber)] transition-colors">{ch.name}</h4>
+                                <div className="text-xs text-[var(--ink3)] leading-relaxed prose prose-sm dark:prose-invert max-w-none flex flex-col gap-4">
+                                  {ch.notes!.map((n, nIdx) => (
+                                    <div key={n.id || nIdx}>
+                                      <ReactMarkdown 
+                                        remarkPlugins={[remarkMath, remarkGfm]} 
+                                        rehypePlugins={[rehypeKatex]}
+                                      >
+                                        {n.text}
+                                      </ReactMarkdown>
+                                      {n.image && (
+                                        <div className="mt-2 rounded-xl overflow-hidden border border-[var(--parch)] shadow-sm bg-black/5">
+                                          <img src={n.image} alt="Note asset" className="w-full object-contain max-h-[300px]" />
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
                                 </div>
                               </motion.div>
                             ))}
