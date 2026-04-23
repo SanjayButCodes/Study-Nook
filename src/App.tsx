@@ -883,11 +883,12 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    if (profile.onboarded && profile.tourCompleted !== true && !runTour) {
+    // Only show the tour prompt if the user has formally filled out the onboarding form and hasn't finished the tour
+    if (profile.onboarded && profile.tourCompleted === false && !runTour) {
       const t = setTimeout(() => setShowTourPrompt(true), 1500);
       return () => clearTimeout(t);
     }
-  }, [profile.onboarded, profile.tourCompleted]);
+  }, [profile.onboarded, profile.tourCompleted, runTour]);
 
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { status } = data;
@@ -2119,7 +2120,7 @@ export default function App() {
 
                         return (
                           <motion.div 
-                            key={todo.id ? `todo-${todo.id}-${idx}` : `todo-${idx}`}
+                            key={todo.id || `todo-${idx}`}
                             initial={{ opacity: 0, height: 0, x: -10 }}
                             animate={{ opacity: 1, height: "auto", x: 0 }}
                             exit={{ opacity: 0, height: 0, x: 10 }}
@@ -2921,7 +2922,7 @@ export default function App() {
                   </button>
                   <input 
                     className="flex-1 bg-[var(--cream)] border border-[var(--parch)] rounded-full px-4 py-2 text-sm outline-none focus:border-[var(--amber)] transition-all"
-                    placeholder="Ask a doubt..."
+                    placeholder="Ask..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && sendChatMessage()}
@@ -3412,7 +3413,7 @@ export default function App() {
                     <div className="space-y-2">
                       {todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).length > 0 ? (
                         todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).map((todo, idx) => (
-                          <div key={todo.id ? `todo-mini-${todo.id}-${idx}` : `todo-mini-${idx}`} className="flex items-center gap-2 text-xs text-[var(--ink2)]">
+                          <div key={todo.id || `todo-mini-${idx}`} className="flex items-center gap-2 text-xs text-[var(--ink2)]">
                             {todo.completed ? (
                               <CheckCircle2 className="w-3 h-3 text-[var(--done)]" />
                             ) : (
