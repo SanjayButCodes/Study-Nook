@@ -244,7 +244,7 @@ const NotesPrintView = ({ appState, profile }: { appState: AppState, profile: Pr
               <h2 className="text-2xl font-mono uppercase tracking-widest text-[#3d7abf] mb-6 border-b border-gray-200 pb-2">{SUBJ_LABELS[subj]}</h2>
               {groupsWithNotes.map(g => (
                 <div key={g.id} className="mb-8">
-                  <h3 className="text-xl font-bold bg-gray-50 p-2 rounded mb-4">{g.name}</h3>
+                  <h3 className="text-xl font-bold bg-gray-50 p-2 rounded mb-4">{g.label}</h3>
                   {g.chapters.filter(ch => ch.notes && ch.notes.length > 0).map(ch => (
                     <div key={ch.id} className="mb-6 pl-4 border-l-2 border-amber-200 print-avoid-break">
                       <h4 className="text-lg font-bold mb-3">{ch.name}</h4>
@@ -2206,38 +2206,46 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {SUBJ_KEYS.flatMap(subj => 
-                      (appState.data[subj]?.groups || []).flatMap(g => 
-                        (g.chapters || []).filter(ch => ch.notes && ch.notes.length > 0).map(ch => ({ subj, ch }))
-                      )
-                    ).slice(0, 6).map(({ subj, ch }, idx) => (
-                      <motion.div 
-                        key={`${subj}-${ch.id}-recent-${idx}`}
-                        whileHover={{ y: -2 }}
-                        onClick={() => {
-                          setSelectedChapter({ subj, ch });
-                          setIsNoteModalOpen(true);
-                        }}
-                        className="p-5 bg-gradient-to-b from-[var(--cream)] to-[var(--cream2)] border border-[var(--parch)] rounded-2xl hover:border-[var(--amber)] hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
-                      >
-                        <div className="absolute top-0 left-0 w-1 h-full bg-[var(--amber)] opacity-50 group-hover:opacity-100 transition-opacity" />
-                        <div className="flex justify-between items-start mb-3">
-                          <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink4)] bg-[var(--parch)]/30 px-2 py-0.5 rounded-full">{SUBJ_LABELS[subj]}</span>
+                  <div className="space-y-8">
+                    {SUBJ_KEYS.map(subj => {
+                      const subjNotes = (appState.data[subj]?.groups || []).flatMap(g => 
+                        (g.chapters || []).filter(ch => ch.notes && ch.notes.length > 0)
+                      );
+                      
+                      if (subjNotes.length === 0) return null;
+                      
+                      return (
+                        <div key={`notes-section-${subj}`} className="space-y-4">
+                          <h4 className="text-xs font-mono uppercase tracking-widest text-[var(--ink4)] ml-1">{SUBJ_LABELS[subj]}</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {subjNotes.map((ch, idx) => (
+                              <motion.div 
+                                key={`${subj}-${ch.id}-recent-${idx}`}
+                                whileHover={{ y: -2 }}
+                                onClick={() => {
+                                  setSelectedChapter({ subj, ch });
+                                  setIsNoteModalOpen(true);
+                                }}
+                                className="p-5 bg-gradient-to-b from-[var(--cream)] to-[var(--cream2)] border border-[var(--parch)] rounded-2xl hover:border-[var(--amber)] hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+                              >
+                                <div className="absolute top-0 left-0 w-1 h-full bg-[var(--amber)] opacity-50 group-hover:opacity-100 transition-opacity" />
+                                <h4 className="font-serif text-base font-medium mb-2 group-hover:text-[var(--amber)] transition-colors">{ch.name}</h4>
+                                <div className="text-xs text-[var(--ink3)] line-clamp-3 leading-relaxed prose prose-sm dark:prose-invert max-w-none">
+                                  <ReactMarkdown 
+                                    remarkPlugins={[remarkMath, remarkGfm]} 
+                                    rehypePlugins={[rehypeKatex]}
+                                  >
+                                    {ch.notes![ch.notes!.length - 1].text}
+                                  </ReactMarkdown>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
                         </div>
-                        <h4 className="font-serif text-base font-medium mb-2 group-hover:text-[var(--amber)] transition-colors">{ch.name}</h4>
-                        <div className="text-xs text-[var(--ink3)] line-clamp-3 leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-                          <ReactMarkdown 
-                            remarkPlugins={[remarkMath, remarkGfm]} 
-                            rehypePlugins={[rehypeKatex]}
-                          >
-                            {ch.notes[ch.notes.length - 1].text}
-                          </ReactMarkdown>
-                        </div>
-                      </motion.div>
-                    ))}
+                      );
+                    })}
                     {SUBJ_KEYS.every(s => (appState.data[s]?.groups || []).every(g => (g.chapters || []).every(ch => !ch.notes || ch.notes.length === 0))) && (
-                      <div className="col-span-full py-10 text-center border-2 border-dashed border-[var(--parch)] rounded-2xl">
+                      <div className="py-10 text-center border-2 border-dashed border-[var(--parch)] rounded-2xl">
                         <p className="text-sm text-[var(--ink4)] italic">No notes yet. Tell the AI Tutor to add some for you!</p>
                       </div>
                     )}
