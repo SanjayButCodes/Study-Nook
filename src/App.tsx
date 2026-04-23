@@ -753,6 +753,7 @@ export default function App() {
     }
   };
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [todoList, setTodoList] = useState<Todo[]>(() => {
     const saved = localStorage.getItem("jee_todo_v1");
@@ -2204,6 +2205,13 @@ export default function App() {
                         <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink3)]">Quick access to your chapter notes</p>
                       </div>
                     </div>
+                    <button 
+                      onClick={() => setIsNotesExpanded(!isNotesExpanded)}
+                      className="px-4 py-2 bg-[var(--cream2)] border border-[var(--parch)] rounded-xl text-xs font-medium text-[var(--ink)] hover:border-[var(--amber)] transition-colors flex items-center gap-2 shadow-sm"
+                    >
+                      {isNotesExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                      {isNotesExpanded ? "Compress Notes" : "View Full Notes"}
+                    </button>
                   </div>
 
                   <div className="space-y-8">
@@ -2217,7 +2225,10 @@ export default function App() {
                       return (
                         <div key={`notes-section-${subj}`} className="space-y-4">
                           <h4 className="text-xs font-mono uppercase tracking-widest text-[var(--ink4)] ml-1">{SUBJ_LABELS[subj]}</h4>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+                          <div className={cn(
+                            "gap-4",
+                            isNotesExpanded ? "grid grid-cols-1 md:grid-cols-2 items-start" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                          )}>
                             {subjNotes.map((ch, idx) => (
                               <motion.div 
                                 key={`${subj}-${ch.id}-recent-${idx}`}
@@ -2230,8 +2241,11 @@ export default function App() {
                               >
                                 <div className="absolute top-0 left-0 w-1 h-full bg-[var(--amber)] opacity-50 group-hover:opacity-100 transition-opacity" />
                                 <h4 className="font-serif text-base font-medium mb-3 group-hover:text-[var(--amber)] transition-colors">{ch.name}</h4>
-                                <div className="text-xs text-[var(--ink3)] leading-relaxed prose prose-sm dark:prose-invert max-w-none flex flex-col gap-4">
-                                  {ch.notes!.map((n, nIdx) => (
+                                <div className={cn(
+                                  "text-xs text-[var(--ink3)] prose prose-sm dark:prose-invert max-w-none flex flex-col gap-4",
+                                  isNotesExpanded ? "leading-relaxed" : "line-clamp-3"
+                                )}>
+                                  {isNotesExpanded ? ch.notes!.map((n, nIdx) => (
                                     <div key={n.id || nIdx}>
                                       <ReactMarkdown 
                                         remarkPlugins={[remarkMath, remarkGfm]} 
@@ -2245,7 +2259,14 @@ export default function App() {
                                         </div>
                                       )}
                                     </div>
-                                  ))}
+                                  )) : (
+                                    <ReactMarkdown 
+                                      remarkPlugins={[remarkMath, remarkGfm]} 
+                                      rehypePlugins={[rehypeKatex]}
+                                    >
+                                      {ch.notes![0].text}
+                                    </ReactMarkdown>
+                                  )}
                                 </div>
                               </motion.div>
                             ))}
