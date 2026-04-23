@@ -73,6 +73,7 @@ export interface Profile {
   exams: Exam[];
   tests?: Test[];
   onboarded: boolean;
+  tourCompleted?: boolean;
   darkMode: boolean;
   chatSessions: ChatSession[];
   customApiKey?: string;

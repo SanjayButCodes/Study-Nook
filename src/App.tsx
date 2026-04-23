@@ -57,6 +57,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toPng } from "html-to-image";
+import { Joyride, CallBackProps, STATUS, Step } from 'react-joyride';
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -96,6 +97,26 @@ function Logo({ className = "w-6 h-6", iconClassName = "w-4 h-4" }: { className?
     <div className={cn("relative flex items-center justify-center rounded-[28%] bg-gradient-to-br from-[var(--amber)] to-[var(--gold)] shadow-sm", className)}>
       <BookOpen className={cn("text-white", iconClassName)} />
     </div>
+  );
+}
+
+function NovaLogo({ className = "w-6 h-6" }: { className?: string }) {
+  return (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      className={className}
+    >
+      <circle cx="12" cy="12" r="2" fill="currentColor" />
+      <ellipse cx="12" cy="12" rx="9" ry="3.5" transform="rotate(30 12 12)" />
+      <ellipse cx="12" cy="12" rx="9" ry="3.5" transform="rotate(90 12 12)" />
+      <ellipse cx="12" cy="12" rx="9" ry="3.5" transform="rotate(150 12 12)" />
+    </svg>
   );
 }
 
@@ -779,6 +800,104 @@ export default function App() {
   // Motivation State
 
   // STT Setup
+  const [showTourPrompt, setShowTourPrompt] = useState(false);
+  const [runTour, setRunTour] = useState(false);
+  const tourSteps = useMemo(() => {
+    const steps: Step[] = [
+      {
+        target: '#tour-tabs',
+        content: 'Here you can switch between checking all subjects, or clicking into specific subjects like Physics, Chemistry, and Math.',
+        placement: 'bottom',
+        disableBeacon: true,
+      },
+      {
+        target: '#tour-upcoming-tests',
+        content: 'Check your upcoming tests here to keep your preparation on track.',
+        placement: 'bottom',
+        disableBeacon: true,
+      },
+      {
+        target: '#tour-todo',
+        content: 'Keep track of your daily tasks and to-dos here. Stay organized!',
+        placement: 'top',
+        disableBeacon: true,
+      },
+      {
+        target: '#tour-exams',
+        content: 'Add your target exams and countdown dates here.',
+        placement: 'left',
+        disableBeacon: true,
+      },
+      {
+        target: '#tour-syllabus',
+        content: 'Track every chapter here! Check off modules, read notes, and watch your progress bar fill up as you get closer to your goal.',
+        placement: 'top',
+        disableBeacon: true,
+      },
+      {
+        target: '#tour-ai-tutor',
+        content: 'This is your AI Tutor. Ask it to explain concepts, generate notes, or query your syllabus progress. It knows everything!',
+        placement: 'left',
+        disableBeacon: true,
+      }
+    ];
+
+    if (user) {
+      steps.push({
+        target: '#tour-friends',
+        content: 'Crack JEE together! Add friends, see their progress, and stay motivated.',
+        placement: 'bottom',
+        disableBeacon: true,
+      });
+    }
+
+    steps.push({
+      target: '#tour-reminders',
+      content: 'Never miss a study block. Set your session reminders here.',
+      placement: 'bottom',
+      disableBeacon: true,
+    });
+
+    steps.push({
+      target: '#tour-share',
+      content: 'Share your progress straight to socials and challenge your peers!',
+      placement: 'bottom',
+      disableBeacon: true,
+    });
+
+    steps.push({
+      target: '#tour-edit-syllabus',
+      content: 'Click here whenever you want to update your syllabus checklist, add notes, and check off chapters!',
+      placement: 'left',
+      disableBeacon: true,
+    });
+    
+    steps.push({
+      target: '#tour-footer',
+      content: '"Phadlo chaiye kahi se, syllabus track karo Study Nook se" - All the best for your preparations!',
+      placement: 'top',
+      disableBeacon: true,
+    });
+
+    return steps;
+  }, [user]);
+
+  useEffect(() => {
+    if (profile.onboarded && profile.tourCompleted !== true && !runTour) {
+      const t = setTimeout(() => setShowTourPrompt(true), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [profile.onboarded, profile.tourCompleted]);
+
+  const handleJoyrideCallback = (data: CallBackProps) => {
+    const { status } = data;
+    const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
+    if (finishedStatuses.includes(status)) {
+      setRunTour(false);
+      setProfile(prev => ({ ...prev, tourCompleted: true }));
+    }
+  };
+
   const startListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -1644,7 +1763,55 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      <Joyride
+        steps={tourSteps}
+        run={runTour}
+        continuous
+        showSkipButton
+        showProgress
+        styles={{
+          options: {
+            primaryColor: '#d97706', // amber-600
+            backgroundColor: '#fdfbf7', // cream
+            textColor: '#1a1a1a', // ink
+            overlayColor: 'rgba(0, 0, 0, 0.5)',
+          }
+        }}
+        callback={handleJoyrideCallback}
+      />
+      
       <div id="main-app-content" className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]">
+      <AnimatePresence>
+        {showTourPrompt && !runTour && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-6 z-[2000] text-center">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-[var(--cream)] rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-[var(--parch)]"
+            >
+              <Logo className="w-16 h-16 mx-auto mb-6 shadow-md" iconClassName="w-10 h-10" />
+              <h3 className="font-serif text-2xl font-medium mb-2">Welcome aboard! 👋</h3>
+              <p className="text-[var(--ink3)] text-sm mb-6">Would you like a quick tour to see how to use Study Nook to track your JEE syllabus?</p>
+              <div className="space-y-3">
+                <button 
+                  onClick={() => { setShowTourPrompt(false); setRunTour(true); }}
+                  className="w-full py-3 bg-[var(--amber)] text-white rounded-xl font-medium shadow-md hover:bg-[var(--amber-dk)] transition-colors"
+                >
+                  Yes, show me around
+                </button>
+                <button 
+                  onClick={() => { setShowTourPrompt(false); setProfile(prev => ({ ...prev, tourCompleted: true })); }}
+                  className="w-full py-3 bg-[var(--cream2)] text-[var(--ink2)] rounded-xl font-medium hover:bg-black/5 transition-colors"
+                >
+                  No thanks, I'll explore
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="sticky top-0 z-[100] glass h-16 flex items-center px-6 md:px-8 pt-[env(safe-area-inset-top)] box-content">
         <div className="max-w-[1320px] w-full mx-auto flex items-center gap-4">
@@ -1682,7 +1849,7 @@ export default function App() {
           
           <div className="flex-1" />
 
-          <nav className="hidden md:flex overflow-x-auto scrollbar-hide bg-[var(--cream2)] border border-[var(--parch)] p-1 rounded-full gap-1">
+          <nav id="tour-tabs" className="hidden md:flex overflow-x-auto scrollbar-hide bg-[var(--cream2)] border border-[var(--parch)] p-1 rounded-full gap-1">
             {(["all", "physics", "chemistry", "mathematics"] as const).map(t => (
               <button
                 key={t}
@@ -1700,6 +1867,7 @@ export default function App() {
           <div className="flex items-center gap-2 sm:gap-3 ml-auto">
             {user && (
               <button 
+                id="tour-friends"
                 onClick={() => setIsFriendsModalOpen(true)}
                 className={cn(
                   "flex items-center gap-2 p-2 border rounded-lg transition-all shadow-[var(--sh-sm)] relative",
@@ -1715,6 +1883,7 @@ export default function App() {
             )}
 
             <button 
+              id="tour-reminders"
               onClick={() => setIsRemindersOpen(true)}
               className="flex items-center gap-2 p-2 bg-[var(--cream2)] border border-[var(--parch)] text-[var(--ink3)] rounded-lg hover:bg-[var(--cream3)] transition-all shadow-[var(--sh-sm)]"
               title="Study Reminders"
@@ -1723,6 +1892,7 @@ export default function App() {
             </button>
 
             <button 
+              id="tour-share"
               onClick={() => setIsShareModalOpen(true)}
               className="flex items-center gap-2 p-2 bg-[var(--amber)] text-white rounded-lg hover:bg-[var(--amber-dk)] transition-all shadow-[var(--sh-sm)]"
               title="Share Progress"
@@ -1769,7 +1939,7 @@ export default function App() {
           >
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Upcoming Tests (Full Width Row) */}
-              <div className="lg:col-span-12 space-y-4">
+              <div id="tour-upcoming-tests" className="lg:col-span-12 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-serif text-lg font-medium text-[var(--ink)]">Upcoming Tests</h3>
                 </div>
@@ -1844,7 +2014,7 @@ export default function App() {
                 </motion.div>
 
                 {/* Quick Stats / Mini Bento Row */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div id="tour-syllabus" className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {SUBJ_KEYS.map((key, idx) => {
                     const stats = getSubjStats(key);
                     const color = SUBJ_COLORS[key];
@@ -1904,6 +2074,7 @@ export default function App() {
               <div className="lg:col-span-4 space-y-6 h-full flex flex-col">
                 {/* Today's Focus */}
                 <motion.div 
+                  id="tour-todo"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   className="bg-[var(--cream)] border border-[var(--parch)] rounded-[2.5rem] p-8 shadow-[var(--sh-sm)] flex-1 flex flex-col"
@@ -2033,7 +2204,7 @@ export default function App() {
                 </motion.div>
 
                 {/* Exam Countdowns (Stacked in Sidebar) */}
-                <div className="space-y-4">
+                <div id="tour-exams" className="space-y-4">
                   {(profile.exams || []).map((exam, idx) => {
                     // Parse date as local midnight to avoid timezone issues
                     const examDate = new Date(exam.date + "T00:00:00");
@@ -2284,7 +2455,7 @@ export default function App() {
               </div>
 
               {/* Footer Text */}
-              <div className="w-full text-center py-16 px-2 flex flex-col items-center justify-center">
+              <div id="tour-footer" className="w-full text-center py-16 px-2 flex flex-col items-center justify-center">
                 <p className="font-serif text-2xl sm:text-3xl lg:text-4xl text-[var(--ink4)] opacity-40 italic leading-snug text-balance w-full max-w-4xl mx-auto">
                   "Phadlo chaiye kahi se, syllabus track karo Study Nook se"
                 </p>
@@ -2308,6 +2479,7 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-4">
                   <button 
+                    id="tour-edit-syllabus"
                     onClick={() => setIsEditMode(!isEditMode)}
                     className={cn(
                       "flex items-center justify-center p-2 rounded-lg transition-colors border",
@@ -2542,13 +2714,14 @@ export default function App() {
 
       {/* Floating AI Tutor FAB */}
       <button 
+        id="tour-ai-tutor"
         onClick={() => setIsTutorOpen(!isTutorOpen)}
         className={cn(
           "fixed bottom-[calc(7rem+env(safe-area-inset-bottom))] left-6 md:bottom-8 md:left-8 w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-2xl z-[500] transition-all transform hover:scale-110",
           isTutorOpen ? "bg-[var(--amber)] text-white" : "bg-[var(--cream)] border border-[var(--parch)] text-[var(--amber)]"
         )}
       >
-        <Sparkles className={cn("w-5 h-5 md:w-6 md:h-6", isTutorOpen && "animate-pulse")} />
+        <NovaLogo className={cn("w-5 h-5 md:w-6 md:h-6", isTutorOpen && "animate-pulse")} />
       </button>
 
       {/* Floating AI Tutor Window (FIXED & IMPROVED) */}
@@ -2564,8 +2737,8 @@ export default function App() {
           >
             <div className="p-5 border-b border-[var(--parch)] flex justify-between items-center bg-[var(--cream2)] cursor-move">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[var(--amber)]" />
-                <span className="font-serif font-medium">AI Tutor</span>
+                <NovaLogo className="w-6 h-6 text-[var(--amber)]" />
+                <span className="font-serif font-medium" style={{ fontFamily: "var(--font-serif)", fontWeight: 700 }}>Nova AI</span>
               </div>
               <div className="flex items-center gap-1">
                 <button 
@@ -2650,7 +2823,7 @@ export default function App() {
                   ))}
                   {isChatLoading && (
                     <div className="flex items-center gap-2 text-[var(--ink3)] text-xs italic">
-                      <Sparkles className="w-3 h-3 animate-pulse" />
+                      <NovaLogo className="w-3 h-3 animate-pulse" />
                       AI is thinking...
                     </div>
                   )}
@@ -2705,7 +2878,7 @@ export default function App() {
                 {showAiHint && chatMessages.length <= 1 && (
                   <div className="mb-3 px-2 flex justify-between items-center bg-[var(--cream)] p-2 rounded-xl border border-[var(--parch)]">
                     <p className="text-[10px] text-[var(--ink3)] italic flex items-center gap-1.5">
-                      <Sparkles className="w-3 h-3 text-[var(--amber)]" />
+                      <NovaLogo className="w-3 h-3 text-[var(--amber)]" />
                       Try: "Mark Physics Chapter 1 as studied"
                     </p>
                     <div className="flex items-center gap-2">
@@ -2748,7 +2921,7 @@ export default function App() {
                   </button>
                   <input 
                     className="flex-1 bg-[var(--cream)] border border-[var(--parch)] rounded-full px-4 py-2 text-sm outline-none focus:border-[var(--amber)] transition-all"
-                    placeholder="Ask a doubt... (paste images here)"
+                    placeholder="Ask a doubt..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && sendChatMessage()}
