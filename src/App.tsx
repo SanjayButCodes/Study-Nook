@@ -884,7 +884,7 @@ export default function App() {
 
   useEffect(() => {
     // Only show the tour prompt if the user has formally filled out the onboarding form and hasn't finished the tour
-    if (profile.onboarded && profile.tourCompleted === false && !runTour) {
+    if (profile.onboarded && profile.tourCompleted !== true && !runTour) {
       const t = setTimeout(() => setShowTourPrompt(true), 1500);
       return () => clearTimeout(t);
     }
@@ -1056,6 +1056,7 @@ export default function App() {
           setProfile(prev => ({
             ...prev,
             ...data.profile,
+            tourCompleted: prev.tourCompleted === true ? true : data.profile.tourCompleted,
             friendCode: data.profile.friendCode || prev.friendCode || Math.floor(100000 + Math.random() * 900000).toString()
           }));
         }
