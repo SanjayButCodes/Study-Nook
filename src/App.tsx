@@ -138,6 +138,18 @@ function NovaLogo({ className = "w-6 h-6" }: { className?: string }) {
   );
 }
 
+const MemoizedMarkdown = React.memo(({ text }: { text: string }) => {
+  return (
+    <ReactMarkdown 
+      remarkPlugins={[remarkMath, remarkGfm]} 
+      rehypePlugins={[rehypeRaw, rehypeKatex]}
+      components={markdownComponents}
+    >
+      {text}
+    </ReactMarkdown>
+  );
+});
+
 function TypingText({ text, onComplete }: { text: string, onComplete?: () => void }) {
   const [displayedText, setDisplayedText] = useState("");
   const [index, setIndex] = useState(0);
@@ -155,13 +167,7 @@ function TypingText({ text, onComplete }: { text: string, onComplete?: () => voi
   }, [index, text, onComplete]);
 
   return (
-    <ReactMarkdown 
-      remarkPlugins={[remarkMath, remarkGfm]} 
-      rehypePlugins={[rehypeRaw, rehypeKatex]}
-      components={markdownComponents}
-    >
-      {displayedText}
-    </ReactMarkdown>
+    <MemoizedMarkdown text={displayedText} />
   );
 }
 
@@ -291,9 +297,7 @@ const NotesPrintView = ({ appState, profile }: { appState: AppState, profile: Pr
                       <div className="space-y-4">
                         {ch.notes!.map((note, idx) => (
                           <div key={note.id || idx} className="prose prose-sm max-w-none print-note pt-2">
-                            <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeRaw, rehypeKatex]} components={markdownComponents}>
-                              {note.text}
-                            </ReactMarkdown>
+                            <MemoizedMarkdown text={note.text} />
                             {note.image && (
                               <img src={note.image} alt="Note asset" className="mt-4 rounded-xl max-h-64 object-contain border border-gray-200" />
                             )}
@@ -2044,13 +2048,7 @@ export default function App() {
                       <div className="p-6 bg-[var(--cream2)] rounded-2xl border-l-4 border-[var(--amber)] relative">
                         <Quote className="absolute -top-3 -left-3 w-8 h-8 text-[var(--amber)] opacity-20" />
                         <div className="text-sm md:text-base italic text-[var(--ink2)] leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-                          <ReactMarkdown 
-                            remarkPlugins={[remarkMath, remarkGfm]} 
-                            rehypePlugins={[rehypeRaw, rehypeKatex]}
-                            components={markdownComponents}
-                          >
-                            {motivation}
-                          </ReactMarkdown>
+                          <MemoizedMarkdown text={motivation} />
                         </div>
                         <button 
                           onClick={() => generateMotivation(true)}
@@ -2469,13 +2467,7 @@ export default function App() {
                                 )}>
                                   {isNotesExpanded ? ch.notes!.map((n, nIdx) => (
                                     <div key={n.id || nIdx}>
-                                      <ReactMarkdown 
-                                        remarkPlugins={[remarkMath, remarkGfm]} 
-                                        rehypePlugins={[rehypeRaw, rehypeKatex]}
-                                        components={markdownComponents}
-                                      >
-                                        {n.text}
-                                      </ReactMarkdown>
+                                      <MemoizedMarkdown text={n.text} />
                                       {n.image && (
                                         <div className="mt-2 rounded-xl overflow-hidden border border-[var(--parch)] shadow-sm bg-black/5">
                                           <img src={n.image} alt="Note asset" className="w-full object-contain max-h-[300px]" />
@@ -2483,13 +2475,7 @@ export default function App() {
                                       )}
                                     </div>
                                   )) : (
-                                    <ReactMarkdown 
-                                      remarkPlugins={[remarkMath, remarkGfm]} 
-                                      rehypePlugins={[rehypeRaw, rehypeKatex]}
-                                      components={markdownComponents}
-                                    >
-                                      {ch.notes![0].text}
-                                    </ReactMarkdown>
+                                    <MemoizedMarkdown text={ch.notes![0].text} />
                                   )}
                                 </div>
                               </motion.div>
@@ -2863,13 +2849,7 @@ export default function App() {
                               setChatMessages(prev => prev.map((m, idx) => idx === i ? { ...m, isTyping: false } : m));
                             }} />
                           ) : (
-                            <ReactMarkdown 
-                              remarkPlugins={[remarkMath, remarkGfm]} 
-                              rehypePlugins={[rehypeRaw, rehypeKatex]}
-                              components={markdownComponents}
-                            >
-                              {msg.text}
-                            </ReactMarkdown>
+                            <MemoizedMarkdown text={msg.text} />
                           )}
                         </div>
                       </div>
@@ -4545,13 +4525,7 @@ export default function App() {
                         ) : (
                           <>
                             <div className="prose prose-sm xl:prose-base dark:prose-invert max-w-none leading-loose text-[var(--ink)] whitespace-pre-wrap font-sans">
-                              <ReactMarkdown 
-                                remarkPlugins={[remarkMath, remarkGfm]} 
-                                rehypePlugins={[rehypeRaw, rehypeKatex]}
-                                components={markdownComponents}
-                              >
-                                {note.text}
-                              </ReactMarkdown>
+                              <MemoizedMarkdown text={note.text} />
                               {note.image && (
                                 <div className="mt-6 mb-2 rounded-2xl overflow-hidden border border-[var(--parch)] shadow-sm bg-black/5">
                                   <img src={note.image} alt="Note asset" className="w-full object-contain max-h-[500px]" />
