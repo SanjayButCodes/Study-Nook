@@ -58,12 +58,30 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { toPng } from "html-to-image";
 import { Joyride, CallBackProps, STATUS, Step } from 'react-joyride';
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import rehypeRaw from "rehype-raw";
 import "katex/dist/katex.min.css";
 import { cn } from "./lib/utils";
+
+const markdownComponents: Components = {
+  img: ({ node, ...props }) => (
+    <img 
+      className="max-w-full rounded-2xl border border-[var(--parch)] shadow-[var(--sh-sm)] object-contain max-h-[500px] my-4" 
+      {...props} 
+    />
+  ),
+  a: ({ node, ...props }) => (
+    <a 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      className="text-[#3d7abf] hover:underline" 
+      {...props} 
+    />
+  ),
+};
 import { DEFAULTS, DEFAULT_COLUMNS } from "./constants";
 import { AppState, Profile, Chapter, Group, Exam, Column, ChatSession, SubjectData, Reminder, Todo, FriendRequest, ChatMessage, ChapterNote } from "./types";
 import { callGemini } from "./services/gemini";
@@ -139,7 +157,8 @@ function TypingText({ text, onComplete }: { text: string, onComplete?: () => voi
   return (
     <ReactMarkdown 
       remarkPlugins={[remarkMath, remarkGfm]} 
-      rehypePlugins={[rehypeKatex]}
+      rehypePlugins={[rehypeRaw, rehypeKatex]}
+      components={markdownComponents}
     >
       {displayedText}
     </ReactMarkdown>
@@ -272,7 +291,7 @@ const NotesPrintView = ({ appState, profile }: { appState: AppState, profile: Pr
                       <div className="space-y-4">
                         {ch.notes!.map((note, idx) => (
                           <div key={note.id || idx} className="prose prose-sm max-w-none print-note pt-2">
-                            <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex]}>
+                            <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeRaw, rehypeKatex]} components={markdownComponents}>
                               {note.text}
                             </ReactMarkdown>
                             {note.image && (
@@ -2027,7 +2046,8 @@ export default function App() {
                         <div className="text-sm md:text-base italic text-[var(--ink2)] leading-relaxed prose prose-sm dark:prose-invert max-w-none">
                           <ReactMarkdown 
                             remarkPlugins={[remarkMath, remarkGfm]} 
-                            rehypePlugins={[rehypeKatex]}
+                            rehypePlugins={[rehypeRaw, rehypeKatex]}
+                            components={markdownComponents}
                           >
                             {motivation}
                           </ReactMarkdown>
@@ -2451,7 +2471,8 @@ export default function App() {
                                     <div key={n.id || nIdx}>
                                       <ReactMarkdown 
                                         remarkPlugins={[remarkMath, remarkGfm]} 
-                                        rehypePlugins={[rehypeKatex]}
+                                        rehypePlugins={[rehypeRaw, rehypeKatex]}
+                                        components={markdownComponents}
                                       >
                                         {n.text}
                                       </ReactMarkdown>
@@ -2464,7 +2485,8 @@ export default function App() {
                                   )) : (
                                     <ReactMarkdown 
                                       remarkPlugins={[remarkMath, remarkGfm]} 
-                                      rehypePlugins={[rehypeKatex]}
+                                      rehypePlugins={[rehypeRaw, rehypeKatex]}
+                                      components={markdownComponents}
                                     >
                                       {ch.notes![0].text}
                                     </ReactMarkdown>
@@ -2843,7 +2865,8 @@ export default function App() {
                           ) : (
                             <ReactMarkdown 
                               remarkPlugins={[remarkMath, remarkGfm]} 
-                              rehypePlugins={[rehypeKatex]}
+                              rehypePlugins={[rehypeRaw, rehypeKatex]}
+                              components={markdownComponents}
                             >
                               {msg.text}
                             </ReactMarkdown>
@@ -4524,7 +4547,8 @@ export default function App() {
                             <div className="prose prose-sm xl:prose-base dark:prose-invert max-w-none leading-loose text-[var(--ink)] whitespace-pre-wrap font-sans">
                               <ReactMarkdown 
                                 remarkPlugins={[remarkMath, remarkGfm]} 
-                                rehypePlugins={[rehypeKatex]}
+                                rehypePlugins={[rehypeRaw, rehypeKatex]}
+                                components={markdownComponents}
                               >
                                 {note.text}
                               </ReactMarkdown>
