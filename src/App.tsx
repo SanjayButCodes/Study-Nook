@@ -139,13 +139,18 @@ function NovaLogo({ className = "w-6 h-6" }: { className?: string }) {
 }
 
 const MemoizedMarkdown = React.memo(({ text }: { text: string }) => {
+  // Pre-process common LaTeX delimiters so remark-math can parse them correctly
+  const processedText = text
+    .replace(/\\\((.*?)\\\)/gs, '$$$1$$')
+    .replace(/\\\[(.*?)\\\]/gs, '$$$$$1$$$$');
+
   return (
     <ReactMarkdown 
       remarkPlugins={[remarkMath, remarkGfm]} 
-      rehypePlugins={[rehypeRaw, rehypeKatex]}
+      rehypePlugins={[rehypeKatex, rehypeRaw]}
       components={markdownComponents}
     >
-      {text}
+      {processedText}
     </ReactMarkdown>
   );
 });
