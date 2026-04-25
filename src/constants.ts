@@ -1,6 +1,6 @@
 import { AppState, Chapter, Group, Column } from "./types";
 
-const uid = () => Math.random().toString(36).substring(2, 9);
+const uid = () => Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
 const mkCh = (name: string): Chapter => ({
   id: uid(),

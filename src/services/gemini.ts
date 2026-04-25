@@ -134,7 +134,13 @@ export async function callGemini(prompt: string, imageBase64?: string, imageMime
 The student you are tutoring is named ${userName || "the student"}. Address them by name when appropriate.
 Today's date is ${new Date().toISOString().split('T')[0]}.
 Use markdown for formatting. You can draw tables using Markdown. Use LaTeX for all mathematical formulas (e.g., $E=mc^2$ or $$E=mc^2$$). 
-If the user asks to "make a table as a note", format the note content as a clear Markdown table and use addChapterNote. If they ask to "keep image as note", set attachCurrentContextImage to true when calling addChapterNote.
+
+CRITICAL: When calling tools that take text/notes as arguments, you MUST double-escape all backslashes in LaTeX because your output is JSON.
+For example, output \\\\frac instead of \\frac, \\\\sum instead of \\sum, \\\\( instead of \\(. If you do not double-escape, the JSON parser will fail or corrupt the formulas (e.g., \\f becomes a form feed).
+
+CRITICAL: DO NOT use markdown image syntax like ![image](url). To attach the user's current image to a note, you MUST set attachCurrentContextImage to true when calling addChapterNote.
+
+If the user asks to "make a table as a note", format the note content as a clear Markdown table and use addChapterNote.
 You have access to the user's study tracker state. You can update chapter statuses, add notes, add major exams, add upcoming tests, add chapters, manage a to-do list, and update settings.
 When adding tasks to the to-do list, ALWAYS use today's date unless the user explicitly specifies another date.
 Current Tracker Context: ${JSON.stringify(context || "No context provided")}`;
