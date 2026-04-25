@@ -90,7 +90,7 @@ import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/aut
 import { doc, onSnapshot, setDoc, getDoc, getDocFromServer, Timestamp, collection, query, where, or, addDoc, deleteDoc, getDocs } from "firebase/firestore";
 
 // --- Types & Constants ---
-const uid = () => Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+const uid = () => Math.random().toString(36).substring(2, 9);
 type Tab = "all" | "physics" | "chemistry" | "mathematics" | "friends";
 type SubjectKey = "physics" | "chemistry" | "mathematics";
 
@@ -924,8 +924,8 @@ export default function App() {
         document.head.appendChild(link);
       }
       
-      const closedBookSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📕</text></svg>`;
-      const openBookSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📖</text></svg>`;
+      const closedBookSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>`;
+      const openBookSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
 
       if (document.hidden) {
         link.href = 'data:image/svg+xml,' + encodeURIComponent(closedBookSVG);
@@ -4398,8 +4398,9 @@ export default function App() {
                         {editingNoteId === note.id ? (
                           <div className="relative">
                             <textarea
-                              defaultValue={editingNoteText}
-                              className="w-full p-3 pb-12 bg-[var(--cream)] border border-[var(--amber)] rounded-xl min-h-[100px] outline-none text-sm resize-y font-sans leading-relaxed editing-note-textarea"
+                              value={editingNoteText}
+                              onChange={(e) => setEditingNoteText(e.target.value)}
+                              className="w-full p-3 pb-12 bg-[var(--cream)] border border-[var(--amber)] rounded-xl min-h-[100px] outline-none text-sm resize-y font-sans leading-relaxed"
                               autoFocus
                               onPaste={(e) => {
                                 const items = e.clipboardData?.items;
@@ -4420,7 +4421,7 @@ export default function App() {
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                   e.preventDefault();
-                                  const val = (e.currentTarget as HTMLTextAreaElement).value.trim();
+                                  const val = editingNoteText.trim();
                                   if (val || editingNoteImage) {
                                     const newNotes = selectedChapter.ch.notes!.map(n => {
                                       if (n.id === note.id) {
@@ -4486,9 +4487,8 @@ export default function App() {
                                 <X className="w-3.5 h-3.5" />
                               </button>
                               <button 
-                                onClick={(e) => {
-                                  const textarea = e.currentTarget.closest('.relative')?.querySelector('.editing-note-textarea') as HTMLTextAreaElement;
-                                  const val = textarea ? textarea.value.trim() : "";
+                                onClick={() => {
+                                  const val = editingNoteText.trim();
                                   if (val || editingNoteImage) {
                                     const newNotes = selectedChapter.ch.notes!.map(n => {
                                       if (n.id === note.id) {
