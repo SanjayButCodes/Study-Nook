@@ -61,6 +61,7 @@ import { Joyride, CallBackProps, STATUS, Step } from 'react-joyride';
 import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import remarkBreaks from "remark-breaks";
 import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import "katex/dist/katex.min.css";
@@ -146,7 +147,7 @@ const MemoizedMarkdown = React.memo(({ text }: { text: string }) => {
 
   return (
     <ReactMarkdown 
-      remarkPlugins={[remarkMath, remarkGfm]} 
+      remarkPlugins={[remarkMath, remarkGfm, remarkBreaks]} 
       rehypePlugins={[rehypeKatex, rehypeRaw]}
       components={markdownComponents}
     >
@@ -2844,7 +2845,7 @@ export default function App() {
                           </button>
                         )}
                         <div className={cn(
-                          "prose prose-sm xl:prose-base dark:prose-invert max-w-none leading-relaxed whitespace-pre-wrap font-sans",
+                          "prose prose-sm xl:prose-base dark:prose-invert max-w-none leading-relaxed font-sans",
                           msg.role === "user" 
                             ? "prose-invert text-white prose-p:text-white prose-headings:text-white prose-strong:text-white" 
                             : "text-[var(--ink)]"
@@ -4529,7 +4530,7 @@ export default function App() {
                           </div>
                         ) : (
                           <>
-                            <div className="prose prose-sm xl:prose-base dark:prose-invert max-w-none leading-loose text-[var(--ink)] whitespace-pre-wrap font-sans">
+                            <div className="prose prose-sm xl:prose-base dark:prose-invert max-w-none leading-loose text-[var(--ink)] font-sans">
                               <MemoizedMarkdown text={note.text} />
                               {note.image && (
                                 <div className="mt-6 mb-2 rounded-2xl overflow-hidden border border-[var(--parch)] shadow-sm bg-black/5">

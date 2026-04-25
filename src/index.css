@@ -192,6 +192,8 @@
     table-layout: auto;
     text-align: left;
     border-collapse: collapse;
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
   }
 
   .prose thead {
