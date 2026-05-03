@@ -57,7 +57,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toPng } from "html-to-image";
-import Joyride, { STATUS, Step } from 'react-joyride';
+import { Joyride, STATUS, Step } from 'react-joyride';
 import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -1828,7 +1828,7 @@ export default function App() {
         steps={tourSteps}
         run={runTour}
         continuous
-        callback={handleJoyrideCallback}
+        onEvent={handleJoyrideCallback}
       />
       
       <div id="main-app-content" className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]">
@@ -2141,17 +2141,27 @@ export default function App() {
                           Jump to Today
                         </button>
                       )}
-                      <div className="relative flex items-center">
+                      <div 
+                        className="relative flex items-center cursor-pointer group"
+                        onClick={(e) => {
+                          try {
+                            document.getElementById('todo-date-input')?.showPicker();
+                          } catch (err) {
+                            console.warn("showPicker is not supported in this browser");
+                          }
+                        }}
+                      >
                         <input 
+                          id="todo-date-input"
                           type="date" 
                           value={todoDate}
                           onChange={(e) => {
                             if (e.target.value) setTodoDate(e.target.value);
                           }}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
-                        <div className="px-3 py-1.5 bg-[var(--cream2)] border border-[var(--parch)] rounded-lg text-xs font-mono font-medium flex items-center gap-2 pointer-events-none">
-                          <Calendar className="w-3.5 h-3.5 text-[var(--ink3)]" />
+                        <div className="px-3 py-1.5 bg-[var(--cream2)] border border-[var(--parch)] rounded-lg text-xs font-mono font-medium flex items-center gap-2 group-hover:border-[var(--amber)] transition-all">
+                          <Calendar className="w-3.5 h-3.5 text-[var(--ink3)] group-hover:text-[var(--amber)] transition-all" />
                           {new Date(todoDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                         </div>
                       </div>
