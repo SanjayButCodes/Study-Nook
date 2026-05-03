@@ -57,7 +57,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toPng } from "html-to-image";
-import { Joyride, CallBackProps, STATUS, Step } from 'react-joyride';
+import Joyride, { STATUS, Step } from 'react-joyride';
 import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -818,6 +818,18 @@ export default function App() {
   });
   const [todoDate, setTodoDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const displayedTodos = useMemo(() => {
+    return (todoList || []).filter(t => {
+      // If the user views today, we show today's tasks + truly overdue actual tasks from the past
+      if (todoDate === todayStr) {
+        return t.date === todoDate || (!t.completed && t.date < todayStr);
+      }
+      // If viewing any other day, ONLY show that day's scheduled tasks to avoid polluting future days with uncompleted past tasks
+      return t.date === todoDate;
+    });
+  }, [todoList, todoDate, todayStr]);
+
   // Friends State
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
@@ -837,37 +849,31 @@ export default function App() {
         target: '#tour-tabs',
         content: 'Here you can switch between checking all subjects, or clicking into specific subjects like Physics, Chemistry, and Math.',
         placement: 'bottom',
-        disableBeacon: true,
       },
       {
         target: '#tour-upcoming-tests',
         content: 'Check your upcoming tests here to keep your preparation on track.',
         placement: 'bottom',
-        disableBeacon: true,
       },
       {
         target: '#tour-todo',
         content: 'Keep track of your daily tasks and to-dos here. Stay organized!',
         placement: 'top',
-        disableBeacon: true,
       },
       {
         target: '#tour-exams',
         content: 'Add your target exams and countdown dates here.',
         placement: 'left',
-        disableBeacon: true,
       },
       {
         target: '#tour-syllabus',
         content: 'Track every chapter here! Check off modules, read notes, and watch your progress bar fill up as you get closer to your goal.',
         placement: 'top',
-        disableBeacon: true,
       },
       {
         target: '#tour-ai-tutor',
         content: 'This is your AI Tutor. Ask it to explain concepts, generate notes, or query your syllabus progress. It knows everything!',
         placement: 'left',
-        disableBeacon: true,
       }
     ];
 
@@ -876,7 +882,6 @@ export default function App() {
         target: '#tour-friends',
         content: 'Crack JEE together! Add friends, see their progress, and stay motivated.',
         placement: 'bottom',
-        disableBeacon: true,
       });
     }
 
@@ -884,28 +889,24 @@ export default function App() {
       target: '#tour-reminders',
       content: 'Never miss a study block. Set your session reminders here.',
       placement: 'bottom',
-      disableBeacon: true,
     });
 
     steps.push({
       target: '#tour-share',
       content: 'Share your progress straight to socials and challenge your peers!',
       placement: 'bottom',
-      disableBeacon: true,
     });
 
     steps.push({
       target: '#tour-edit-syllabus',
       content: 'Click here whenever you want to update your syllabus checklist, add notes, and check off chapters!',
       placement: 'left',
-      disableBeacon: true,
     });
     
     steps.push({
       target: '#tour-footer',
       content: '"Phadlo chaiye kahi se, syllabus track karo Study Nook se" - All the best for your preparations!',
       placement: 'top',
-      disableBeacon: true,
     });
 
     return steps;
@@ -948,7 +949,7 @@ export default function App() {
     };
   }, []);
 
-  const handleJoyrideCallback = (data: CallBackProps) => {
+  const handleJoyrideCallback = (data: any) => {
     const { status } = data;
     const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
     if (finishedStatuses.includes(status)) {
@@ -1827,16 +1828,6 @@ export default function App() {
         steps={tourSteps}
         run={runTour}
         continuous
-        showSkipButton
-        showProgress
-        styles={{
-          options: {
-            primaryColor: '#d97706', // amber-600
-            backgroundColor: '#fdfbf7', // cream
-            textColor: '#1a1a1a', // ink
-            overlayColor: 'rgba(0, 0, 0, 0.5)',
-          }
-        }}
         callback={handleJoyrideCallback}
       />
       
@@ -2142,6 +2133,14 @@ export default function App() {
                       <h3 className="font-serif text-lg font-medium">Daily Focus</h3>
                     </div>
                     <div className="flex items-center gap-2">
+                      {todoDate !== todayStr && (
+                        <button
+                          onClick={() => setTodoDate(todayStr)}
+                          className="px-3 py-1.5 bg-[var(--amber-lt)] text-[var(--amber-dk)] border border-[var(--amber-lt)] hover:border-[var(--amber)] rounded-lg text-xs font-mono font-medium flex items-center transition-all"
+                        >
+                          Jump to Today
+                        </button>
+                      )}
                       <div className="relative flex items-center">
                         <input 
                           type="date" 
@@ -2160,15 +2159,15 @@ export default function App() {
                         </div>
                       </div>
                       <div className="px-3 py-1.5 bg-[var(--cream2)] border border-[var(--parch)] rounded-full text-[10px] font-mono font-bold">
-                        {((todoList || []).filter(t => t.date === todoDate && t.completed).length)}/{((todoList || []).filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).length)}
+                        {(displayedTodos.filter(t => t.completed).length)}/{displayedTodos.length}
                       </div>
                     </div>
                   </div>
                   
                   <div className="flex-1 space-y-3 overflow-y-auto pr-2 ai-scrollbar min-h-[200px]">
                     <AnimatePresence initial={false}>
-                      {(todoList || []).filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).map((todo, idx) => {
-                        const isOverdue = !todo.completed && todo.date < todoDate;
+                      {displayedTodos.map((todo, idx) => {
+                        const isOverdue = !todo.completed && todo.date < todayStr;
                         const formattedTodoDate = new Date(todo.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
                         const isEditing = editingTodoId === todo.id;
 
@@ -2225,10 +2224,10 @@ export default function App() {
                           </motion.div>
                         )})}
                     </AnimatePresence>
-                    {((todoList || []).filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).length === 0) && (
+                    {displayedTodos.length === 0 && (
                       <div className="h-full flex flex-col items-center justify-center text-center py-10 border-2 border-dashed border-[var(--parch)] rounded-3xl">
                         <Target className="w-8 h-8 text-[var(--parch)] mb-2" />
-                        <p className="text-xs text-[var(--ink4)] italic">What's the plan for {todoDate === new Date().toISOString().split('T')[0] ? "today" : new Date(todoDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}?</p>
+                        <p className="text-xs text-[var(--ink4)] italic">What's the plan for {todoDate === todayStr ? "today" : new Date(todoDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}?</p>
                       </div>
                     )}
                   </div>
@@ -2239,7 +2238,7 @@ export default function App() {
                         type="text"
                         value={newTodoText}
                         onChange={(e) => setNewTodoText(e.target.value)}
-                        placeholder={`Add a new goal for ${todoDate === new Date().toISOString().split('T')[0] ? "today" : new Date(todoDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}...`}
+                        placeholder={`Add a new goal for ${todoDate === todayStr ? "today" : new Date(todoDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}...`}
                         className="w-full bg-[var(--cream2)] border border-[var(--parch)] rounded-2xl px-5 py-3 text-sm outline-none focus:border-[var(--amber)] focus:ring-4 focus:ring-[var(--amber-lt)] transition-all pr-12"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
@@ -3448,10 +3447,12 @@ export default function App() {
                   </div>
 
                   <div className="mb-6">
-                    <div className="text-[8px] font-mono uppercase text-[var(--ink4)] mb-2">Today's Tasks</div>
+                    <div className="text-[8px] font-mono uppercase text-[var(--ink4)] mb-2">
+                      {todoDate === todayStr ? "Today's Tasks" : `Tasks for ${new Date(todoDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`}
+                    </div>
                     <div className="space-y-2">
-                      {todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).length > 0 ? (
-                        todoList.filter(t => t.date === todoDate || (!t.completed && t.date < todoDate)).map((todo, idx) => (
+                      {displayedTodos.length > 0 ? (
+                        displayedTodos.map((todo, idx) => (
                           <div key={todo.id || `todo-mini-${idx}`} className="flex items-center gap-2 text-xs text-[var(--ink2)]">
                             {todo.completed ? (
                               <CheckCircle2 className="w-3 h-3 text-[var(--done)]" />
