@@ -2145,13 +2145,10 @@ export default function App() {
                         <input 
                           type="date" 
                           value={todoDate}
-                          onChange={(e) => setTodoDate(e.target.value)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50"
-                          onClick={(e) => {
-                            try {
-                              (e.target as HTMLInputElement).showPicker();
-                            } catch (err) {}
+                          onChange={(e) => {
+                            if (e.target.value) setTodoDate(e.target.value);
                           }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50"
                         />
                         <div className="px-3 py-1.5 bg-[var(--cream2)] border border-[var(--parch)] rounded-lg text-xs font-mono font-medium flex items-center gap-2 pointer-events-none">
                           <Calendar className="w-3.5 h-3.5 text-[var(--ink3)]" />
@@ -2173,7 +2170,7 @@ export default function App() {
 
                         return (
                           <motion.div 
-                            key={todo.id || `todo-${idx}`}
+                            key={todo.id}
                             initial={{ opacity: 0, height: 0, x: -10 }}
                             animate={{ opacity: 1, height: "auto", x: 0 }}
                             exit={{ opacity: 0, height: 0, x: 10 }}
@@ -3453,7 +3450,7 @@ export default function App() {
                     <div className="space-y-2">
                       {displayedTodos.length > 0 ? (
                         displayedTodos.map((todo, idx) => (
-                          <div key={todo.id || `todo-mini-${idx}`} className="flex items-center gap-2 text-xs text-[var(--ink2)]">
+                          <div key={todo.id} className="flex items-center gap-2 text-xs text-[var(--ink2)]">
                             {todo.completed ? (
                               <CheckCircle2 className="w-3 h-3 text-[var(--done)]" />
                             ) : (
