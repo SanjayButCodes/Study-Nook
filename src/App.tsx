@@ -1181,9 +1181,20 @@ export default function App() {
       }
     };
     
-    // Increased debounce to 30 seconds to significantly reduce sync frequency
-    const timeout = setTimeout(saveToFirebase, 30000);
-    return () => clearTimeout(timeout);
+    // Auto-sync debounce set to 5 seconds.
+    const timeout = setTimeout(saveToFirebase, 5000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        saveToFirebase();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearTimeout(timeout);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [appState, profile, todoList, chatMessages, isDataLoaded, user, quotaExceeded, isOnline]);
 
 
